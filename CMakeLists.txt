@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.20)
 
 include(cmake/prelude.cmake)
 
@@ -67,7 +67,7 @@ target_include_directories(
     "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/export>"
 )
 
-target_compile_features(splittable_splittable PUBLIC cxx_std_20)
+target_compile_features(splittable_splittable PUBLIC cxx_std_23)
 
 # ---- Install rules ----
 
