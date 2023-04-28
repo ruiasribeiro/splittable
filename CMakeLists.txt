@@ -13,6 +13,18 @@ project(
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
+# ---- Import dependencies ----
+
+include(FetchContent)
+
+FetchContent_Declare(
+  wyatt-stm
+  GIT_REPOSITORY https://github.com/bretthall/Wyatt-STM
+  GIT_TAG        8c53c063c30a1b0284ce48a96431580028c72d39
+)
+
+FetchContent_MakeAvailable(wyatt-stm)
+
 # ---- Declare library ----
 
 add_library(
