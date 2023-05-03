@@ -13,25 +13,16 @@ const double MAX_ABORT_RATE = 0.05;
 const uint MAX_NODES = 1024;
 const uint MIN_BALANCE_DIFF = 5;
 
-class mrv : public splittable
-{
-public:
+class mrv : public splittable {
+ public:
+  // auto virtual static new_mrv(uint size) -> std::shared_ptr<mrv> = 0;
+  // auto virtual static delete_mrv(std::shared_ptr<mrv>) -> void = 0;
+
+  auto virtual get_id() -> uint = 0;
+
   auto virtual add_nodes(double abort_rate) -> void = 0;
   auto virtual remove_node() -> void = 0;
   auto virtual balance() -> void = 0;
 };
 
-struct metadata
-{
-  std::shared_ptr<mrv> value;
-  uint aborts;
-  uint commits;
-};
-
-struct metadata_message
-{
-  uint id;
-  uint retries;
-};
-
-} // namespace splittable::mrv
+}  // namespace splittable::mrv
