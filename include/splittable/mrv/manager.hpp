@@ -24,6 +24,9 @@ enum txn_status { aborted, completed };
 
 class manager {
  private:
+  inline static const auto ADJUST_INTERVAL = std::chrono::milliseconds(1000);
+  inline static const auto BALANCE_INTERVAL = std::chrono::milliseconds(100);
+
   inline static const std::string MESSAGE_URL = "inproc://mrv";
   static zmqpp::context context;
   zmqpp::socket server;
@@ -46,6 +49,7 @@ class manager {
   auto static get_instance() -> manager&;
 
   auto register_mrv(std::shared_ptr<mrv> mrv) -> void;
+  auto deregister_mrv(std::shared_ptr<mrv> mrv) -> void;
 
   auto report_txn(txn_status::txn_status status, uint mrv_id) -> void;
 };

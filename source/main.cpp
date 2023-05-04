@@ -18,7 +18,7 @@ int main(int argc, char const* argv[]) {
         at.After([=]() { std::cout << value << std::endl; });
       });
 
-      WSTM::Atomically([&x](WSTM::WAtomic& at) { x->add(at, 20); });
+      WSTM::Atomically([&x](WSTM::WAtomic& at) { x->add(at, 50); });
 
       WSTM::Atomically([&x](WSTM::WAtomic& at) {
         auto value = x->read(at);

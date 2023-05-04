@@ -11,7 +11,6 @@ manager::manager() : server(context, zmqpp::socket_type::pull) {
 
   server.bind(MESSAGE_URL);
 
-  // TODO: start threads
   std::thread(
       // metadata collector
       [this]() {
@@ -50,6 +49,52 @@ manager::manager() : server(context, zmqpp::socket_type::pull) {
         }
       })
       .detach();
+
+  std::thread(
+      // balance worker
+      [this]() {
+        while (true) {
+          std::this_thread::sleep_for(BALANCE_INTERVAL);
+
+          // TODO: improve this
+          // I don't like this lock here, could affect performance negatively
+          std::shared_lock lock(values_mutex);
+          for (auto&& [_, value] : values) {
+            value.value->balance();
+          }
+        }
+      })
+      .detach();
+
+  std::thread(
+      // adjust worker
+      [this]() {
+        while (true) {
+          std::this_thread::sleep_for(ADJUST_INTERVAL);
+
+          // TODO: improve this
+          // I don't like this lock here, could affect performance negatively
+          std::shared_lock lock(values_mutex);
+          for (auto&& [id, metadata] : values) {
+            // TODO: clear old abort/commit stats
+
+            if (metadata.commits == 0) {
+              metadata.value->remove_node();
+              continue;
+            }
+
+            auto abort_rate = (double)metadata.aborts /
+                              (double)(metadata.aborts + metadata.commits);
+
+            if (abort_rate < MIN_ABORT_RATE) {
+              metadata.value->remove_node();
+            } else if (abort_rate > MAX_ABORT_RATE) {
+              metadata.value->add_nodes(abort_rate);
+            }
+          }
+        }
+      })
+      .detach();
 }
 
 manager::~manager() {}
@@ -61,7 +106,14 @@ auto manager::get_instance() -> manager& {
 
 auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
   std::cout << "registering " << mrv->get_id() << "\n";
+  std::unique_lock lock(values_mutex);
   values[mrv->get_id()] = metadata{.value = mrv, .aborts = 0, .commits = 0};
+};
+
+auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
+  std::cout << "deregistering " << mrv->get_id() << "\n";
+  std::unique_lock lock(values_mutex);
+  values.erase(mrv->get_id());
 };
 
 auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {

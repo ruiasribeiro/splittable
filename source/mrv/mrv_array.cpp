@@ -18,8 +18,8 @@ auto mrv_array::new_mrv(uint size) -> std::shared_ptr<mrv> {
   return obj;
 }
 
-auto mrv_array::delete_mrv(std::shared_ptr<mrv>) -> void {
-  // TODO
+auto mrv_array::delete_mrv(std::shared_ptr<mrv> obj) -> void {
+  manager::get_instance().deregister_mrv(obj);
 }
 
 auto mrv_array::get_id() -> uint { return this->id; }
@@ -88,6 +88,41 @@ auto mrv_array::add_nodes(double abort_rate) -> void {}
 
 auto mrv_array::remove_node() -> void {}
 
-auto mrv_array::balance() -> void {}
+auto mrv_array::balance() -> void {
+  auto num_chunks = chunks.size();
+
+  if (num_chunks < 2) {
+    return;
+  }
+
+  auto i = utils::random_index(0, num_chunks - 1);
+  auto j = utils::random_index(0, num_chunks - 1);
+
+  if (i == j) {
+    j = (i + 1) % num_chunks;
+  }
+
+  WSTM::Atomically([&](WSTM::WAtomic& at) {
+    auto ci = chunks[i].Get(at);
+    auto cj = chunks[j].Get(at);
+
+    if (ci <= cj + MIN_BALANCE_DIFF && cj <= ci + MIN_BALANCE_DIFF) {
+      // the difference isn't enough to balance, abort
+      // TODO: use an abort?
+      return;
+    }
+
+    auto new_value = (ci + cj) / 2;
+    auto remainder = (ci + cj) % 2;
+
+    chunks[i].Set(new_value + remainder, at);
+    chunks[j].Set(new_value, at);
+
+    // at.After([=]() {
+    //   std::cout << "Balance: " << ci << " " << cj << " -> "
+    //             << new_value + remainder << " " << new_value << "\n";
+    // });
+  });
+}
 
 }  // namespace splittable::mrv
