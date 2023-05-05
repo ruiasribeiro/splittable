@@ -7,7 +7,7 @@ std::atomic_uint mrv_array::id_counter{0};
 mrv_array::mrv_array(uint size) {
   this->id = mrv_array::id_counter.fetch_add(1, std::memory_order_relaxed);
   this->chunks.reserve(size);
-  for (auto _ : std::ranges::iota_view{0u, size}) {
+  for (auto i = 0u; i < size; ++i) {
     this->chunks.push_back(WSTM::WVar<uint>{0});
   }
 }
@@ -84,9 +84,47 @@ auto mrv_array::sub(WSTM::WAtomic& at, uint value) -> void {
   }
 }
 
-auto mrv_array::add_nodes(double abort_rate) -> void {}
+auto mrv_array::add_nodes(double abort_rate) -> void {
+  auto num_chunks = chunks.size();
 
-auto mrv_array::remove_node() -> void {}
+  // TODO: this is not exactly like the original impl, revise later
+  if (num_chunks >= MAX_NODES) {
+    return;
+  }
+
+  auto to_add = std::min((size_t)std::lround(1 + num_chunks * abort_rate),
+                         MAX_NODES - num_chunks);
+
+  if (to_add < 1) {
+    return;
+  }
+
+  for (; to_add > 0; --to_add) {
+    chunks.push_back(WSTM::WVar<uint>{0});
+  }
+}
+
+auto mrv_array::remove_node() -> void {
+  auto num_chunks = chunks.size();
+
+  // TODO: check if removing does not go below min nodes
+  if (num_chunks < 2) {
+    return;
+  }
+
+  WSTM::Atomically([&](WSTM::WAtomic& at) {
+    // move data to existing record
+    auto last_chunk = chunks.at(num_chunks - 1).Get(at);
+    auto absorber_index = utils::random_index(0, num_chunks - 1);
+    auto& absorber = chunks.at(absorber_index);
+    absorber.Set(absorber.Get(at) + last_chunk, at);
+
+    // reduce chunks size
+    // TODO: some other txn could add to this last value before this txn pops,
+    // fix later
+    at.After([this]() { chunks.pop_back(); });
+  });
+}
 
 auto mrv_array::balance() -> void {
   auto num_chunks = chunks.size();
@@ -103,8 +141,8 @@ auto mrv_array::balance() -> void {
   }
 
   WSTM::Atomically([&](WSTM::WAtomic& at) {
-    auto ci = chunks[i].Get(at);
-    auto cj = chunks[j].Get(at);
+    auto ci = chunks.at(i).Get(at);
+    auto cj = chunks.at(j).Get(at);
 
     if (ci <= cj + MIN_BALANCE_DIFF && cj <= ci + MIN_BALANCE_DIFF) {
       // the difference isn't enough to balance, abort
