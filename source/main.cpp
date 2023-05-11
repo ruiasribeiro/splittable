@@ -7,8 +7,8 @@
 using namespace std::chrono_literals;
 
 int main(int argc, char const* argv[]) {
-  const auto iter = 100000;
-  auto x = splittable::mrv::mrv_array::new_mrv(10);
+  const auto iter = 10000;
+  auto x = splittable::mrv::mrv_array::new_mrv(1);
   std::vector<std::thread> threads;
   threads.reserve(10);
 
@@ -20,17 +20,17 @@ int main(int argc, char const* argv[]) {
       });
 
       for (auto i = 0; i < iter; ++i) {
-        WSTM::Atomically([&x](WSTM::WAtomic& at) { x->add(at, 50); });
+        WSTM::Atomically([&x](WSTM::WAtomic& at) { x->add(at, 1); });
 
-        try {
-          WSTM::Atomically([&x](WSTM::WAtomic& at) { x->sub(at, 10); });
-        } catch (...) {
-        }
+        // try {
+        //   WSTM::Atomically([&x](WSTM::WAtomic& at) { x->sub(at, 10); });
+        // } catch (...) {
+        // }
 
-        try {
-          WSTM::Atomically([&x](WSTM::WAtomic& at) { x->sub(at, 20); });
-        } catch (...) {
-        }
+        // try {
+        //   WSTM::Atomically([&x](WSTM::WAtomic& at) { x->sub(at, 20); });
+        // } catch (...) {
+        // }
       }
     }));
   }
@@ -39,7 +39,10 @@ int main(int argc, char const* argv[]) {
     threads[i].join();
   }
 
-  std::this_thread::sleep_for(5s);
+  WSTM::Atomically([&x](WSTM::WAtomic& at) {
+    auto value = x->read(at);
+    at.After([=]() { std::cout << value << std::endl; });
+  });
 
   return 0;
 }

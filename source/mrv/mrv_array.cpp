@@ -90,7 +90,6 @@ auto mrv_array::sub(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_array::add_nodes(double abort_rate) -> void {
-  std::cout << "increased w/" << abort_rate << "\n";
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {
       auto size = this->valid_chunks.Get(at);
@@ -109,6 +108,11 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
 
       auto new_size = size + to_add;
       this->valid_chunks.Set(new_size, at);
+
+      at.After([abort_rate, new_size]() {
+        std::cout << "increased w/abort " << abort_rate
+                  << " | new size: " << new_size << "\n";
+      });
 
       auto capacity = this->chunks.size();
       if (capacity >= new_size) {

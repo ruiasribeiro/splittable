@@ -6,8 +6,8 @@
 #include <shared_mutex>
 #include <thread>
 #include <unordered_map>
-#include <zmqpp/zmqpp.hpp>
 
+#include "cppzmq/zmq.hpp"
 #include "splittable/mrv/mrv.hpp"
 
 namespace splittable::mrv {
@@ -22,14 +22,19 @@ namespace txn_status {
 enum txn_status { aborted, completed };
 }
 
+struct txn_message {
+  txn_status::txn_status status;
+  uint id;
+};
+
 class manager {
  private:
   inline static const auto ADJUST_INTERVAL = std::chrono::milliseconds(1000);
   inline static const auto BALANCE_INTERVAL = std::chrono::milliseconds(100);
 
   inline static const std::string MESSAGE_URL = "inproc://mrv";
-  static zmqpp::context context;
-  zmqpp::socket server;
+  static zmq::context_t context;
+  zmq::socket_t server;
 
   // {ID -> Metadata}
   std::unordered_map<uint, metadata> values;

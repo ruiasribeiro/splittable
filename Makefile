@@ -1,6 +1,6 @@
 CXX      = g++-12
 CXXFLAGS = -Wall -Wextra -Wpedantic -std=c++23 -g
-LDFLAGS  = -ltbb -lwstm -lboost_thread -lzmq -lzmqpp
+LDFLAGS  = -ltbb -lwstm -lboost_thread -lzmq
 
 INC_DIR = include
 LIB_DIR = libraries

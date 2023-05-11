@@ -2,32 +2,30 @@
 
 namespace splittable::mrv {
 
-zmqpp::context manager::context{};
+zmq::context_t manager::context{};
 
-manager::manager() : server(context, zmqpp::socket_type::pull) {
+manager::manager() : server(context, zmq::socket_type::pull) {
   // the ZeroMQ guide states that no threads are needed for inter-thread
   // communications
-  context.set(zmqpp::context_option::io_threads, 0);
+  context.set(zmq::ctxopt::io_threads, 0);
 
   server.bind(MESSAGE_URL);
 
   std::thread(
       // metadata collector
       [this]() {
-        zmqpp::message message;
+        zmq::message_t message;
 
         while (true) {
           try {
-            server.receive(message);
+            server.recv(message);
           } catch (...) {
             // this should only happen when the application is shutdown down, so
             // we can safely end this thread
             break;
           }
 
-          int status;
-          uint id;
-          message >> status >> id;
+          auto data = message.data<txn_message>();
 
           {
             // we don't need an exclusive lock here, the commit/abort values are
@@ -35,12 +33,12 @@ manager::manager() : server(context, zmqpp::socket_type::pull) {
             // problems when adding/removing MRV
             std::shared_lock lock(values_mutex);
 
-            switch (status) {
+            switch (data->status) {
               case txn_status::aborted:
-                values.at(id).aborts++;
+                values.at(data->id).aborts++;
                 break;
               case txn_status::completed:
-                values.at(id).commits++;
+                values.at(data->id).commits++;
                 break;
               default:
                 std::unreachable();
@@ -76,8 +74,6 @@ manager::manager() : server(context, zmqpp::socket_type::pull) {
           // I don't like this lock here, could affect performance negatively
           std::shared_lock lock(values_mutex);
           for (auto&& [id, metadata] : values) {
-            // TODO: clear old abort/commit stats
-
             if (metadata.commits == 0) {
               metadata.value->remove_node();
               continue;
@@ -85,6 +81,10 @@ manager::manager() : server(context, zmqpp::socket_type::pull) {
 
             auto abort_rate = (double)metadata.aborts /
                               (double)(metadata.aborts + metadata.commits);
+
+            // no thread synchonization here but it shouldn't be a problem
+            metadata.aborts = 0;
+            metadata.commits = 0;
 
             if (abort_rate < MIN_ABORT_RATE) {
               metadata.value->remove_node();
@@ -119,12 +119,14 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
 auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {
   // needs to be static to be reused, so that the OS does not complain about
   // "too many open files"
-  static thread_local zmqpp::socket client(context, zmqpp::socket_type::push);
+  static thread_local zmq::socket_t client(context, zmq::socket_type::push);
   client.connect(MESSAGE_URL);
 
-  zmqpp::message message;
-  message << status << mrv_id;
-  client.send(message);
+  auto size = sizeof(txn_message);
+  zmq::message_t message(size);
+  txn_message content{.status = status, .id = mrv_id};
+  memcpy(message.data(), &content, size);
+  client.send(message, zmq::send_flags::none);
 }
 
 }  // namespace splittable::mrv
