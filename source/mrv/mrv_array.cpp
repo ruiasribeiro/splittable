@@ -6,10 +6,13 @@ std::atomic_uint mrv_array::id_counter{0};
 
 mrv_array::mrv_array(uint size) {
   this->id = mrv_array::id_counter.fetch_add(1, std::memory_order_relaxed);
+
   this->chunks.reserve(size);
   for (auto i = 0u; i < size; ++i) {
     this->chunks.push_back(WSTM::WVar<uint>{0});
   }
+
+  this->valid_chunks = WSTM::WVar<size_t>{size};
 }
 
 auto mrv_array::new_mrv(uint size) -> std::shared_ptr<mrv> {
@@ -36,9 +39,10 @@ auto mrv_array::read(WSTM::WAtomic& at) -> uint {
   setup_actions(at, this->id);
 
   uint sum = 0;
+  auto size = this->valid_chunks.Get(at);
 
-  for (auto&& var : this->chunks) {
-    sum += var.Get(at);
+  for (size_t i = 0; i < size; ++i) {
+    sum += this->chunks.at(i).Get(at);
   }
 
   return sum;
@@ -47,7 +51,8 @@ auto mrv_array::read(WSTM::WAtomic& at) -> uint {
 auto mrv_array::add(WSTM::WAtomic& at, uint value) -> void {
   setup_actions(at, this->id);
 
-  auto index = utils::random_index(0, this->chunks.size() - 1);
+  auto size = this->valid_chunks.Get(at);
+  auto index = utils::random_index(0, size - 1);
 
   auto current_value = this->chunks.at(index).Get(at);
   current_value += value;
@@ -57,7 +62,7 @@ auto mrv_array::add(WSTM::WAtomic& at, uint value) -> void {
 auto mrv_array::sub(WSTM::WAtomic& at, uint value) -> void {
   setup_actions(at, this->id);
 
-  auto size = this->chunks.size();
+  auto size = this->valid_chunks.Get(at);
   auto start = utils::random_index(0, size - 1);
   auto index = start;
   auto success = false;
@@ -85,45 +90,61 @@ auto mrv_array::sub(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_array::add_nodes(double abort_rate) -> void {
-  auto num_chunks = chunks.size();
+  std::cout << "increased w/" << abort_rate << "\n";
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto size = this->valid_chunks.Get(at);
 
-  // TODO: this is not exactly like the original impl, revise later
-  if (num_chunks >= MAX_NODES) {
-    return;
-  }
+      // TODO: this is not exactly like the original impl, revise later
+      if (size >= MAX_NODES) {
+        throw exception();
+      }
 
-  auto to_add = std::min((size_t)std::lround(1 + num_chunks * abort_rate),
-                         MAX_NODES - num_chunks);
+      auto to_add = std::min((size_t)std::lround(1 + size * abort_rate),
+                             MAX_NODES - size);
 
-  if (to_add < 1) {
-    return;
-  }
+      if (to_add < 1) {
+        throw exception();
+      }
 
-  for (; to_add > 0; --to_add) {
-    chunks.push_back(WSTM::WVar<uint>{0});
+      auto new_size = size + to_add;
+      this->valid_chunks.Set(new_size, at);
+
+      auto capacity = this->chunks.size();
+      if (capacity >= new_size) {
+        return;
+      }
+
+      for (auto pushes = new_size - capacity; pushes > 0; --pushes) {
+        chunks.push_back(WSTM::WVar<uint>{0});
+      }
+    });
+  } catch (...) {
   }
 }
 
 auto mrv_array::remove_node() -> void {
-  auto num_chunks = chunks.size();
+  std::cout << "decreased\n";
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto size = this->valid_chunks.Get(at);
 
-  // TODO: check if removing does not go below min nodes
-  if (num_chunks < 2) {
-    return;
+      // TODO: check if removing does not go below min nodes
+      if (size < 2) {
+        throw exception();
+      }
+
+      // move data to existing record
+      auto last_chunk = chunks.at(size - 1).Get(at);
+      auto absorber_index = utils::random_index(0, size - 2);
+      auto& absorber = chunks.at(absorber_index);
+      absorber.Set(absorber.Get(at) + last_chunk, at);
+
+      // reduce chunks size
+      this->valid_chunks.Set(size - 1, at);
+    });
+  } catch (...) {
   }
-
-  WSTM::Atomically([&](WSTM::WAtomic& at) {
-    // move data to existing record
-    auto last_chunk = chunks.at(num_chunks - 1).Get(at);
-    auto absorber_index = utils::random_index(0, num_chunks - 1);
-    auto& absorber = chunks.at(absorber_index);
-    absorber.Set(absorber.Get(at) + last_chunk, at);
-
-    // reduce chunks size
-    // TODO: some other txn could add to this last value before this txn pops,
-    // fix later
-    at.After([this]() { chunks.pop_back(); });
-  });
 }
 
 auto mrv_array::balance() -> void {

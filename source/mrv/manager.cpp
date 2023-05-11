@@ -117,7 +117,9 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
 };
 
 auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {
-  zmqpp::socket client(context, zmqpp::socket_type::push);
+  // needs to be static to be reused, so that the OS does not complain about
+  // "too many open files"
+  static thread_local zmqpp::socket client(context, zmqpp::socket_type::push);
   client.connect(MESSAGE_URL);
 
   zmqpp::message message;

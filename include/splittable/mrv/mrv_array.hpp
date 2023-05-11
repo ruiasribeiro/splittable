@@ -1,5 +1,7 @@
 #pragma once
 
+#include <oneapi/tbb/concurrent_vector.h>
+
 #include <atomic>
 #include <iostream>
 #include <memory>
@@ -19,10 +21,15 @@ class mrv_array : public mrv {
   static std::atomic_uint id_counter;
 
   uint id;
-  std::vector<WSTM::WVar<uint>> chunks;
+  // std::vector<WSTM::WVar<uint>> chunks;
+
+  oneapi::tbb::concurrent_vector<WSTM::WVar<uint>> chunks;
+  // because of the concurrent vector, we can't remove items. that's why we use
+  // a separate counter to determine the number of chunks in use
+  WSTM::WVar<size_t> valid_chunks;
 
  public:
-  // this is not private because of make_shared, need to revise that letar
+  // TODO: this is not private because of make_shared, need to revise that later
   mrv_array(uint size);
 
   auto static new_mrv(uint size) -> std::shared_ptr<mrv>;
