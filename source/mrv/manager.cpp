@@ -120,7 +120,12 @@ auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {
   // needs to be static to be reused, so that the OS does not complain about
   // "too many open files"
   static thread_local zmq::socket_t client(context, zmq::socket_type::push);
-  client.connect(MESSAGE_URL);
+
+  static thread_local bool is_client_connected = false;
+  if (!is_client_connected) {
+    client.connect(MESSAGE_URL);
+    is_client_connected = true;
+  }
 
   auto size = sizeof(txn_message);
   zmq::message_t message(size);
