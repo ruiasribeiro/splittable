@@ -1,6 +1,5 @@
 #pragma once
 
-#include <concepts>
 #include <memory>
 
 #include "splittable/splittable.hpp"

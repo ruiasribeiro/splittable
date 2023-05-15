@@ -41,7 +41,8 @@ manager::manager() : server(context, zmq::socket_type::pull) {
                 values.at(data->id).commits++;
                 break;
               default:
-                std::unreachable();
+                // std::unreachable();
+                break;
             }
           }
         }
@@ -108,13 +109,13 @@ auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
   std::cout << "registering " << mrv->get_id() << "\n";
   std::unique_lock lock(values_mutex);
   values[mrv->get_id()] = metadata{.value = mrv, .aborts = 0, .commits = 0};
-};
+}
 
 auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
   std::cout << "deregistering " << mrv->get_id() << "\n";
   std::unique_lock lock(values_mutex);
   values.erase(mrv->get_id());
-};
+}
 
 auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {
   // needs to be static to be reused, so that the OS does not complain about

@@ -6,7 +6,6 @@
 #include <iostream>
 #include <memory>
 #include <numeric>
-#include <ranges>
 #include <vector>
 
 #include "splittable/mrv/manager.hpp"
