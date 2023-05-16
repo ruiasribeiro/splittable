@@ -8,7 +8,6 @@ for type in ${TYPES[@]}; do
     for workers in ${WORKERS[@]}; do
         for _ in $(seq $RUNS); do
             ./a.out $type $workers
-            echo "finished!"
         done
     done
 done

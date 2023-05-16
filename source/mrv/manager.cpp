@@ -106,13 +106,17 @@ auto manager::get_instance() -> manager& {
 }
 
 auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
+#ifdef SPLITTABLE_DEBUG
   std::cout << "registering " << mrv->get_id() << "\n";
+#endif
   std::unique_lock lock(values_mutex);
   values[mrv->get_id()] = metadata{.value = mrv, .aborts = 0, .commits = 0};
 }
 
 auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
+#ifdef SPLITTABLE_DEBUG
   std::cout << "deregistering " << mrv->get_id() << "\n";
+#endif
   std::unique_lock lock(values_mutex);
   values.erase(mrv->get_id());
 }

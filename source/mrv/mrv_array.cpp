@@ -109,10 +109,12 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
       auto new_size = size + to_add;
       this->valid_chunks.Set(new_size, at);
 
-      at.After([abort_rate, new_size]() {
-        std::cout << "increased w/abort " << abort_rate
+#ifdef SPLITTABLE_DEBUG
+      at.After([abort_rate, new_size, id = this->id]() {
+        std::cout << "increased id=" << id << " w/abort " << abort_rate
                   << " | new size: " << new_size << "\n";
       });
+#endif
 
       auto capacity = this->chunks.size();
       if (capacity >= new_size) {
@@ -128,7 +130,10 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
 }
 
 auto mrv_array::remove_node() -> void {
-  std::cout << "decreased\n";
+#ifdef SPLITTABLE_DEBUG
+  std::cout << "attempt to decrease id=" << this->id << "\n";
+#endif
+
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {
       auto size = this->valid_chunks.Get(at);

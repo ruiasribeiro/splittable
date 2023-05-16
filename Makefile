@@ -1,5 +1,5 @@
 CXX      = g++-12
-CXXFLAGS = -Wall -Wextra -Wpedantic -std=c++17 -g
+CXXFLAGS = -Wall -Wextra -Wpedantic -std=c++17 -g #-DSPLITTABLE_DEBUG
 LDFLAGS  = -lpthread -ltbb -lwstm -lboost_thread -lzmq
 
 INC_DIR = include
