@@ -69,6 +69,14 @@ long long bm_single(size_t workers) {
   }
   auto end = high_resolution_clock::now();
 
+  auto result = value.GetReadOnly();
+  auto expected = TOTAL_ITERATIONS - (TOTAL_ITERATIONS % workers);
+
+  if (result != expected) {
+    std::cerr << "ERROR: invalid result! got " << result << ", expected "
+              << expected << "\n";
+  }
+
   return duration_cast<microseconds>(end - start).count();
 }
 
@@ -104,6 +112,15 @@ long long bm_mrv_array(size_t workers) {
     threads[i].join();
   }
   auto end = high_resolution_clock::now();
+
+  auto result =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto expected = TOTAL_ITERATIONS - (TOTAL_ITERATIONS % workers);
+
+  if (result != expected) {
+    std::cerr << "ERROR: invalid result! got " << result << ", expected "
+              << expected << "\n";
+  }
 
   return duration_cast<microseconds>(end - start).count();
 }
