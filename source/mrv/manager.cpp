@@ -2,26 +2,30 @@
 
 namespace splittable::mrv {
 
-zmq::context_t manager::context{};
-
-manager::manager() : server(context, zmq::socket_type::pull) {
+manager::manager() : context() {
   // the ZeroMQ guide states that no threads are needed for inter-thread
   // communications
   context.set(zmq::ctxopt::io_threads, 0);
 
+  server = zmq::socket_t(context, zmq::socket_type::pull);
   server.bind(MESSAGE_URL);
 
   std::thread(
       // metadata collector
       [this]() {
         zmq::message_t message;
+        zmq::recv_result_t recv_result;
 
         while (true) {
           try {
-            server.recv(message);
+            recv_result = server.recv(message);
           } catch (...) {
-            // this should only happen when the application is shutdown down, so
+            // this should only happen when the application is shutdown, so
             // we can safely end this thread
+            break;
+          }
+
+          if (!recv_result) {
             break;
           }
 
@@ -30,7 +34,7 @@ manager::manager() : server(context, zmq::socket_type::pull) {
           {
             // we don't need an exclusive lock here, the commit/abort values are
             // only updated by this thread; the lock is only here to avoid
-            // problems when adding/removing MRV
+            // problems when adding/removing MRV from the map itself
             std::shared_lock lock(values_mutex);
 
             switch (data->status) {

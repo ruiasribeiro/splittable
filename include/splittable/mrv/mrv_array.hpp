@@ -37,6 +37,7 @@ class mrv_array : public mrv {
   auto get_id() -> uint;
 
   auto read(WSTM::WAtomic& at) -> uint;
+  // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;
   auto add(WSTM::WAtomic& at, uint value) -> void;
   auto sub(WSTM::WAtomic& at, uint value) -> void;
 
