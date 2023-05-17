@@ -8,7 +8,6 @@
 #include "splittable/mrv/mrv_array.hpp"
 #include "wstm/stm.h"
 
-#define TOTAL_ITERATIONS 10000
 #define TIME_PADDING 100000
 
 #define CACHE_LINE_SIZE 64
@@ -18,7 +17,7 @@
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
-using std::chrono::microseconds;
+using std::chrono::seconds;
 using std::chrono::system_clock;
 
 using namespace std::chrono_literals;
@@ -33,20 +32,21 @@ double waste_time(size_t iterations) {
   return value;
 }
 
-long long bm_single(size_t workers) {
+long long bm_single(size_t workers, seconds duration) {
   auto value = WSTM::WVar<uint>(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
 
-  const auto workload = TOTAL_ITERATIONS / workers;
-
   for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, workload]() {
+    threads[i] = std::thread([&, i, duration]() {
       double val;
       bar.wait();
 
-      for (auto j = 0ul; j < workload; j++) {
+      auto now = high_resolution_clock::now;
+      auto start = now();
+
+      while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(TIME_PADDING);
 
@@ -63,37 +63,30 @@ long long bm_single(size_t workers) {
 
   bar.wait();
 
-  auto start = high_resolution_clock::now();
   for (size_t i = 0; i < workers; i++) {
     threads[i].join();
   }
-  auto end = high_resolution_clock::now();
 
   auto result = value.GetReadOnly();
-  auto expected = TOTAL_ITERATIONS - (TOTAL_ITERATIONS % workers);
 
-  if (result != expected) {
-    std::cerr << "ERROR: invalid result! got " << result << ", expected "
-              << expected << "\n";
-  }
-
-  return duration_cast<microseconds>(end - start).count();
+  return result;
 }
 
-long long bm_mrv_array(size_t workers) {
+long long bm_mrv_array(size_t workers, seconds duration) {
   auto value = splittable::mrv::mrv_array::new_mrv(1);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
 
-  const auto workload = TOTAL_ITERATIONS / workers;
-
   for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, workload]() {
+    threads[i] = std::thread([&, i, duration]() {
       double val;
       bar.wait();
 
-      for (auto j = 0ul; j < workload; j++) {
+      auto now = high_resolution_clock::now;
+      auto start = now();
+
+      while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(TIME_PADDING);
           value->add(at, 1);
@@ -107,28 +100,20 @@ long long bm_mrv_array(size_t workers) {
 
   bar.wait();
 
-  auto start = high_resolution_clock::now();
   for (size_t i = 0; i < workers; i++) {
     threads[i].join();
   }
-  auto end = high_resolution_clock::now();
 
   auto result =
       WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
-  auto expected = TOTAL_ITERATIONS - (TOTAL_ITERATIONS % workers);
 
-  if (result != expected) {
-    std::cerr << "ERROR: invalid result! got " << result << ", expected "
-              << expected << "\n";
-  }
-
-  return duration_cast<microseconds>(end - start).count();
+  return result;
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 3) {
-    std::cerr << "requires 2 positional arguments: benchmark, number of workers"
-              << std::endl;
+  if (argc < 4) {
+    std::cerr << "requires 3 positional arguments: benchmark, number of "
+                 "workers, execution time (s)\n";
     return 1;
   }
 
@@ -136,31 +121,44 @@ int main(int argc, char const* argv[]) {
   try {
     workers = std::stoi(argv[2]);
   } catch (...) {
-    std::cerr << "could not convert \"" << argv[2] << "\" to an integer"
-              << std::endl;
+    std::cerr << "could not convert \"" << argv[2] << "\" to an integer\n";
     return 1;
   }
 
   if (workers < 1) {
-    std::cerr << "minimum of 1 worker is required" << std::endl;
+    std::cerr << "minimum of 1 worker is required\n";
+    return 1;
+  }
+
+  seconds execution_time;
+  try {
+    execution_time = seconds{std::stoi(argv[3])};
+  } catch (...) {
+    std::cerr << "could not convert \"" << argv[3] << "\" to an integer\n";
+    return 1;
+  }
+
+  if (execution_time.count() < 1) {
+    std::cerr << "minimum of 1 second is required\n";
     return 1;
   }
 
   std::string benchmark(argv[1]);
 
-  long long time;
+  long long count;
   if (benchmark == "single") {
-    time = bm_single(workers);
+    count = bm_single(workers, execution_time);
   } else if (benchmark == "mrv-array") {
-    time = bm_mrv_array(workers);
+    count = bm_mrv_array(workers, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
-              << "\"; try\"single\", \"mrv-array\"" << std::endl;
+              << "\"; try\"single\", \"mrv-array\"\n";
     return 1;
   }
 
-  // CSV header: benchmark, workers, elapsed time (us)
-  std::cout << benchmark << "," << workers << "," << time << std::endl;
+  // CSV header: benchmark, workers, execution time, # of commited operations
+  std::cout << benchmark << "," << workers << "," << execution_time.count()
+            << "," << count << "\n";
 
   // return 0;
   quick_exit(0);
