@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <atomic>
 #include <memory>
 #include <variant>
 
@@ -30,6 +32,7 @@ class pr_array : public pr {
 
   WSTM::WVar<bool> is_splitted;
 
+  static std::atomic_uint thread_id_counter;
   static thread_local uint thread_id;
   static uint num_threads;
 
@@ -45,8 +48,8 @@ class pr_array : public pr {
 
   auto try_transisiton(double abort_rate, uint waiting,
                        uint aborts_for_no_stock) -> void;
-  auto reconcile() -> void;
-  auto split(split_operation op) -> void;
+  auto split(WSTM::WAtomic& at, split_operation op) -> void;
+  auto reconcile(WSTM::WAtomic& at) -> void;
 };
 
 }  // namespace splittable::pr
