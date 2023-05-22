@@ -1,6 +1,6 @@
 #pragma once
 
-#include <array>
+#include <memory>
 #include <variant>
 
 #include "splittable/pr/pr.hpp"
@@ -22,7 +22,13 @@ class pr_array : public pr {
   using Splitted = splitted;
 
   uint id;
-  WSTM::WVar<std::variant<Single, Splitted>> value;
+
+  // I would like to use a std::variant here but it doesn't seem to play nicely
+  // with WyattSTM
+  WSTM::WVar<Single> single_value;
+  WSTM::WVar<std::shared_ptr<Splitted>> splitted_value;
+
+  WSTM::WVar<bool> is_splitted;
 
   static thread_local uint thread_id;
   static uint num_threads;
