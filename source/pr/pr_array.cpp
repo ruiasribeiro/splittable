@@ -16,16 +16,30 @@ pr_array::pr_array() {
 
 auto pr_array::new_pr() -> std::shared_ptr<pr> {
   auto obj = std::make_shared<pr_array>();
-  // manager::get_instance().register_pr(obj);
+  manager::get_instance().register_pr(obj);
   return obj;
 }
 
 auto pr_array::delete_pr(std::shared_ptr<pr> obj) -> void {
-  // manager::get_instance().deregister_pr(obj);
+  manager::get_instance().deregister_pr(obj);
+}
+
+auto pr_array::get_id() -> uint { return this->id; }
+
+auto report_status(txn_status status, uint id) {
+  manager::get_instance().report_txn(status, id);
+}
+
+auto setup_actions(WSTM::WAtomic& at, uint id) {
+  at.OnFail([id]() { report_status(txn_status_aborted, id); });
+  at.After([id]() { report_status(txn_status_completed, id); });
 }
 
 auto pr_array::read(WSTM::WAtomic& at) -> uint {
+  setup_actions(at, this->id);
+
   if (this->is_splitted.Get(at)) {
+    report_status(txn_status_waiting, id);
     WSTM::Retry(at);
   }
 
@@ -33,10 +47,13 @@ auto pr_array::read(WSTM::WAtomic& at) -> uint {
 }
 
 auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
+  setup_actions(at, this->id);
+
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
 
     if (splitted->op != split_operation_addsub) {
+      report_status(txn_status_waiting, id);
       WSTM::Retry(at);
     }
 
@@ -50,10 +67,13 @@ auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
 }
 
 auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
+  setup_actions(at, this->id);
+
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
 
     if (splitted->op != split_operation_addsub) {
+      report_status(txn_status_waiting, id);
       WSTM::Retry(at);
     }
 
@@ -62,6 +82,7 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
 
     if (current_chunk < to_sub) {
       // TODO: change this to a better exception
+      report_status(txn_status_insufficient_value, id);
       throw std::exception();
     }
 
@@ -71,6 +92,7 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
 
     if (current_value < to_sub) {
       // TODO: change this to a better exception
+      report_status(txn_status_insufficient_value, id);
       throw std::exception();
     }
 
@@ -87,18 +109,21 @@ auto pr_array::register_thread() -> void {
 // should only be called once, at the start of the program
 auto pr_array::set_num_threads(uint num) -> void { num_threads = num; }
 
-auto pr_array::try_transisiton(double abort_rate, uint waiting,
-                               uint aborts_for_no_stock) -> void {
+auto pr_array::try_transition(double abort_rate, uint waiting,
+                              uint aborts_for_no_stock) -> void {
   auto is_splitted = this->is_splitted.GetReadOnly();
 
+  // std::cout << "ar=" << abort_rate;
   // TODO: add "total ratio of clients" condition
   if (is_splitted && (waiting > 0 || aborts_for_no_stock > 0)) {
     WSTM::Atomically([this](WSTM::WAtomic& at) { this->reconcile(at); });
   } else if (!is_splitted && abort_rate > 0.65) {
     // TODO: make it run locked
-    WSTM::Atomically([this](WSTM::WAtomic& at) {
-      this->split(at, split_operation_addsub);  // there's only one op
-    });
+    WSTM::Atomically(
+        [this](WSTM::WAtomic& at) {
+          this->split(at, split_operation_addsub);  // there's only one op
+        },
+        WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
   }
 }
 
@@ -135,6 +160,7 @@ auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
   }
 
   this->is_splitted.Set(true, at);
+  // at.After([]() { std::cout << "splitted\n"; });
 }
 
 auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
@@ -163,6 +189,7 @@ auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
   }
 
   this->is_splitted.Set(false, at);
+  // at.After([]() { std::cout << "reconcillied\n"; });
 }
 
 }  // namespace splittable::pr

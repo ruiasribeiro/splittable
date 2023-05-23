@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <atomic>
+#include <iostream>
 #include <memory>
 #include <variant>
 
+#include "splittable/pr/manager.hpp"
 #include "splittable/pr/pr.hpp"
 #include "wstm/stm.h"
 
@@ -37,11 +39,13 @@ class pr_array : public pr {
   static uint num_threads;
 
  public:
-   // TODO: this is not private because of make_shared, need to revise that later
+  // TODO: this is not private because of make_shared, need to revise that later
   pr_array();
 
   auto static new_pr() -> std::shared_ptr<pr>;
   auto static delete_pr(std::shared_ptr<pr>) -> void;
+
+  auto get_id() -> uint;
 
   auto read(WSTM::WAtomic& at) -> uint;
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;
@@ -52,8 +56,8 @@ class pr_array : public pr {
   // auto unregister_thread() -> void;
   auto static set_num_threads(uint num) -> void;
 
-  auto try_transisiton(double abort_rate, uint waiting,
-                       uint aborts_for_no_stock) -> void;
+  auto try_transition(double abort_rate, uint waiting, uint aborts_for_no_stock)
+      -> void;
   auto split(WSTM::WAtomic& at, split_operation op) -> void;
   auto reconcile(WSTM::WAtomic& at) -> void;
 };
