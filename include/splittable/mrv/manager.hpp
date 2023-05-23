@@ -18,12 +18,10 @@ struct metadata {
   uint commits;
 };
 
-namespace txn_status {
-enum txn_status { aborted, completed };
-}
+enum txn_status { txn_status_aborted, txn_status_completed };
 
 struct txn_message {
-  txn_status::txn_status status;
+  txn_status status;
   uint id;
 };
 
@@ -58,7 +56,7 @@ class manager {
   auto register_mrv(std::shared_ptr<mrv> mrv) -> void;
   auto deregister_mrv(std::shared_ptr<mrv> mrv) -> void;
 
-  auto report_txn(txn_status::txn_status status, uint mrv_id) -> void;
+  auto report_txn(txn_status status, uint mrv_id) -> void;
 };
 
 }  // namespace splittable::mrv

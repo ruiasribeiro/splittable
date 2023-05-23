@@ -29,10 +29,9 @@ auto mrv_array::get_id() -> uint { return this->id; }
 
 auto setup_actions(WSTM::WAtomic& at, uint id) {
   at.OnFail(
-      [id]() { manager::get_instance().report_txn(txn_status::aborted, id); });
-  at.After([id]() {
-    manager::get_instance().report_txn(txn_status::completed, id);
-  });
+      [id]() { manager::get_instance().report_txn(txn_status_aborted, id); });
+  at.After(
+      [id]() { manager::get_instance().report_txn(txn_status_completed, id); });
 }
 
 auto mrv_array::read(WSTM::WAtomic& at) -> uint {
@@ -126,6 +125,8 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
       }
     });
   } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next adjustment phase
   }
 }
 
@@ -153,6 +154,8 @@ auto mrv_array::remove_node() -> void {
       this->valid_chunks.Set(size - 1, at);
     });
   } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next adjustment phase
   }
 }
 

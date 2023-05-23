@@ -38,10 +38,10 @@ manager::manager() : context() {
             std::shared_lock lock(values_mutex);
 
             switch (data->status) {
-              case txn_status::aborted:
+              case txn_status_aborted:
                 values.at(data->id).aborts++;
                 break;
-              case txn_status::completed:
+              case txn_status_completed:
                 values.at(data->id).commits++;
                 break;
               default:
@@ -125,7 +125,7 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
   values.erase(mrv->get_id());
 }
 
-auto manager::report_txn(txn_status::txn_status status, uint mrv_id) -> void {
+auto manager::report_txn(txn_status status, uint mrv_id) -> void {
   // needs to be static to be reused, so that the OS does not complain about
   // "too many open files"
   static thread_local zmq::socket_t client(context, zmq::socket_type::push);
