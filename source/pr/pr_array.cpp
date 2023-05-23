@@ -8,6 +8,22 @@ thread_local uint pr_array::thread_id;
 // needs to be set with set_num_threads()
 uint pr_array::num_threads;
 
+pr_array::pr_array() {
+  this->id = id_counter.fetch_add(1, std::memory_order_relaxed);
+  this->single_value = WSTM::WVar<uint>(0);
+  this->is_splitted = WSTM::WVar<bool>(false);
+}
+
+auto pr_array::new_pr() -> std::shared_ptr<pr> {
+  auto obj = std::make_shared<pr_array>();
+  // manager::get_instance().register_pr(obj);
+  return obj;
+}
+
+auto pr_array::delete_pr(std::shared_ptr<pr> obj) -> void {
+  // manager::get_instance().deregister_pr(obj);
+}
+
 auto pr_array::read(WSTM::WAtomic& at) -> uint {
   if (this->is_splitted.Get(at)) {
     WSTM::Retry(at);

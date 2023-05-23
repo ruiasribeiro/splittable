@@ -17,10 +17,10 @@ namespace splittable::mrv {
 
 class mrv_array : public mrv {
  private:
+ // TODO: this counter should be on the parent `mrv` class
   static std::atomic_uint id_counter;
 
   uint id;
-  // std::vector<WSTM::WVar<uint>> chunks;
 
   oneapi::tbb::concurrent_vector<WSTM::WVar<uint>> chunks;
   // because of the concurrent vector, we can't remove items. that's why we use

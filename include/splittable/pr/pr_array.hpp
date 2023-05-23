@@ -37,6 +37,12 @@ class pr_array : public pr {
   static uint num_threads;
 
  public:
+   // TODO: this is not private because of make_shared, need to revise that later
+  pr_array();
+
+  auto static new_pr() -> std::shared_ptr<pr>;
+  auto static delete_pr(std::shared_ptr<pr>) -> void;
+
   auto read(WSTM::WAtomic& at) -> uint;
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;
   auto add(WSTM::WAtomic& at, uint value) -> void;
