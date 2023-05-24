@@ -35,7 +35,8 @@ auto setup_actions(WSTM::WAtomic& at, uint id) {
 }
 
 auto mrv_array::read(WSTM::WAtomic& at) -> uint {
-  setup_actions(at, this->id);
+  // a read does not count for the purposes of the abort rate, so no lambdas are
+  // needed here
 
   uint sum = 0;
   auto size = this->valid_chunks.Get(at);
