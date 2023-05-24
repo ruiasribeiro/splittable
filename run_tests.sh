@@ -1,7 +1,7 @@
 #!/bin/bash
 
 worker_list=(1 2 4 8 16 32 64 128)
-type_list=(single mrv-array)
+type_list=(single mrv-array pr-array)
 seconds=60
 runs=1
 

@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "splittable/mrv/mrv_array.hpp"
+#include "splittable/pr/pr_array.hpp"
 #include "wstm/stm.h"
 
 #define TIME_PADDING 100000
@@ -110,6 +111,47 @@ long long bm_mrv_array(size_t workers, seconds duration) {
   return result;
 }
 
+long long bm_pr_array(size_t workers, seconds duration) {
+  splittable::pr::pr_array::set_num_threads(workers);
+  auto value = splittable::pr::pr_array::new_pr();
+  auto threads = std::make_unique<std::thread[]>(workers);
+
+  boost::barrier bar(workers + 1);
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i] = std::thread([&, i, duration]() {
+      value->register_thread();
+
+      double val;
+      bar.wait();
+
+      auto now = high_resolution_clock::now;
+      auto start = now();
+
+      while ((now() - start) < duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(TIME_PADDING);
+          value->add(at, 1);
+          val = waste_time(TIME_PADDING);
+        });
+      }
+
+      volatile auto avoid_optimisation = val;
+    });
+  }
+
+  bar.wait();
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i].join();
+  }
+
+  auto result =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+
+  return result;
+}
+
 int main(int argc, char const* argv[]) {
   if (argc < 4) {
     std::cerr << "requires 3 positional arguments: benchmark, number of "
@@ -150,9 +192,11 @@ int main(int argc, char const* argv[]) {
     count = bm_single(workers, execution_time);
   } else if (benchmark == "mrv-array") {
     count = bm_mrv_array(workers, execution_time);
+  } else if (benchmark == "pr-array") {
+    count = bm_pr_array(workers, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
-              << "\"; try\"single\", \"mrv-array\"\n";
+              << "\"; try\"single\", \"mrv-array\", \"pr-array\"\n";
     return 1;
   }
 
