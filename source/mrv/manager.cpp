@@ -2,57 +2,7 @@
 
 namespace splittable::mrv {
 
-manager::manager() : context() {
-  // the ZeroMQ guide states that no threads are needed for inter-thread
-  // communications
-  context.set(zmq::ctxopt::io_threads, 0);
-
-  server = zmq::socket_t(context, zmq::socket_type::pull);
-  server.bind(MESSAGE_URL);
-
-  std::thread(
-      // metadata collector
-      [this]() {
-        zmq::message_t message;
-        zmq::recv_result_t recv_result;
-
-        while (true) {
-          try {
-            recv_result = server.recv(message);
-          } catch (...) {
-            // this should only happen when the application is shutdown, so
-            // we can safely end this thread
-            break;
-          }
-
-          if (!recv_result) {
-            break;
-          }
-
-          auto data = message.data<txn_message>();
-
-          {
-            // we don't need an exclusive lock here, the commit/abort values are
-            // only updated by this thread; the lock is only here to avoid
-            // problems when adding/removing MRV from the map itself
-            std::shared_lock lock(values_mutex);
-
-            switch (data->status) {
-              case txn_status_aborted:
-                values[data->id]->add_aborts(1u);
-                break;
-              case txn_status_completed:
-                values[data->id]->add_commits(1u);
-                break;
-              default:
-                // std::unreachable();
-                break;
-            }
-          }
-        }
-      })
-      .detach();
-
+manager::manager() {
   std::thread(
       // balance worker
       [this]() {
@@ -123,24 +73,6 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
 #endif
   std::unique_lock lock(values_mutex);
   values.erase(mrv->get_id());
-}
-
-auto manager::report_txn(txn_status status, uint mrv_id) -> void {
-  // needs to be static to be reused, so that the OS does not complain about
-  // "too many open files"
-  static thread_local zmq::socket_t client(context, zmq::socket_type::push);
-
-  static thread_local bool is_client_connected = false;
-  if (!is_client_connected) {
-    client.connect(MESSAGE_URL);
-    is_client_connected = true;
-  }
-
-  auto size = sizeof(txn_message);
-  zmq::message_t message(size);
-  txn_message content{.status = status, .id = mrv_id};
-  memcpy(message.data(), &content, size);
-  client.send(message, zmq::send_flags::none);
 }
 
 }  // namespace splittable::mrv

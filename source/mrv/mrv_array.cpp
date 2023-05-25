@@ -45,13 +45,6 @@ auto mrv_array::fetch_and_reset_status() -> status {
   return {.aborts = aborts, .commits = commits};
 }
 
-auto setup_actions(WSTM::WAtomic& at, uint id) {
-  at.OnFail(
-      [id]() { manager::get_instance().report_txn(txn_status_aborted, id); });
-  at.After(
-      [id]() { manager::get_instance().report_txn(txn_status_completed, id); });
-}
-
 auto mrv_array::read(WSTM::WAtomic& at) -> uint {
   // a read does not count for the purposes of the abort rate, so no lambdas are
   // needed here
@@ -67,7 +60,8 @@ auto mrv_array::read(WSTM::WAtomic& at) -> uint {
 }
 
 auto mrv_array::add(WSTM::WAtomic& at, uint value) -> void {
-  setup_actions(at, this->id);
+  at.OnFail([this]() { this->add_aborts(1u); });
+  at.After([this]() { this->add_commits(1u); });
 
   auto size = this->valid_chunks.Get(at);
   auto index = utils::random_index(0, size - 1);
@@ -78,7 +72,8 @@ auto mrv_array::add(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_array::sub(WSTM::WAtomic& at, uint value) -> void {
-  setup_actions(at, this->id);
+  at.OnFail([this]() { this->add_aborts(1u); });
+  at.After([this]() { this->add_commits(1u); });
 
   auto size = this->valid_chunks.Get(at);
   auto start = utils::random_index(0, size - 1);
