@@ -27,6 +27,24 @@ auto mrv_array::delete_mrv(std::shared_ptr<mrv> obj) -> void {
 
 auto mrv_array::get_id() -> uint { return this->id; }
 
+auto mrv_array::add_aborts(uint count) -> void {
+  this->status_counters.fetch_add(count << 16, std::memory_order_relaxed);
+}
+
+auto mrv_array::add_commits(uint count) -> void {
+  this->status_counters.fetch_add(count, std::memory_order_relaxed);
+}
+
+auto mrv_array::fetch_and_reset_status() -> status {
+  auto counters =
+      this->status_counters.fetch_and(0u, std::memory_order_relaxed);
+
+  auto commits = (counters & 0x0000FFFF);
+  auto aborts = (counters & 0xFFFF0000) >> 16;
+
+  return {.aborts = aborts, .commits = commits};
+}
+
 auto setup_actions(WSTM::WAtomic& at, uint id) {
   at.OnFail(
       [id]() { manager::get_instance().report_txn(txn_status_aborted, id); });

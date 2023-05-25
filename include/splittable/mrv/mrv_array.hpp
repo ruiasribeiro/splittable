@@ -17,7 +17,10 @@ namespace splittable::mrv {
 
 class mrv_array : public mrv {
  private:
- // TODO: this counter should be on the parent `mrv` class
+  // 16 bits for aborts, 16 bits for commits
+  std::atomic_uint32_t status_counters;
+
+  // TODO: this counter should be on the parent `mrv` class
   static std::atomic_uint id_counter;
 
   uint id;
@@ -35,6 +38,10 @@ class mrv_array : public mrv {
   auto static delete_mrv(std::shared_ptr<mrv>) -> void;
 
   auto get_id() -> uint;
+
+  auto add_aborts(uint count) -> void;
+  auto add_commits(uint count) -> void;
+  auto fetch_and_reset_status() -> status;
 
   auto read(WSTM::WAtomic& at) -> uint;
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;

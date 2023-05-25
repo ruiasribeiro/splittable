@@ -12,12 +12,6 @@
 
 namespace splittable::mrv {
 
-struct metadata {
-  std::shared_ptr<mrv> value;
-  uint aborts;
-  uint commits;
-};
-
 enum txn_status { txn_status_aborted, txn_status_completed };
 
 struct txn_message {
@@ -34,10 +28,10 @@ class manager {
   zmq::context_t context;
   zmq::socket_t server;
 
-  // {ID -> Metadata}
+  // {ID -> MRV}
   // TODO: I could change this to a concurrent_hash_map fron oneTBB, check if it
   // is worth it
-  std::unordered_map<uint, metadata> values;
+  std::unordered_map<uint, std::shared_ptr<mrv>> values;
   // exclusive -> when the main manager thread is adding/removing MRVs;
   // shared -> when the secondary workers are iterating through the map
   std::shared_mutex values_mutex;

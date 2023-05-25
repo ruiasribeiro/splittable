@@ -39,10 +39,10 @@ manager::manager() : context() {
 
             switch (data->status) {
               case txn_status_aborted:
-                values.at(data->id).aborts++;
+                values[data->id]->add_aborts(1u);
                 break;
               case txn_status_completed:
-                values.at(data->id).commits++;
+                values[data->id]->add_commits(1u);
                 break;
               default:
                 // std::unreachable();
@@ -63,7 +63,7 @@ manager::manager() : context() {
           // I don't like this lock here, could affect performance negatively
           std::shared_lock lock(values_mutex);
           for (auto&& [_, value] : values) {
-            value.value->balance();
+            value->balance();
           }
         }
       })
@@ -78,23 +78,23 @@ manager::manager() : context() {
           // TODO: improve this
           // I don't like this lock here, could affect performance negatively
           std::shared_lock lock(values_mutex);
-          for (auto&& [id, metadata] : values) {
-            if (metadata.commits == 0) {
-              metadata.value->remove_node();
+          for (auto&& [id, value] : values) {
+            auto counters = value->fetch_and_reset_status();
+
+            auto commits = counters.commits;
+            auto aborts = counters.aborts;
+
+            if (commits == 0u) {
+              value->remove_node();
               continue;
             }
 
-            auto abort_rate = (double)metadata.aborts /
-                              (double)(metadata.aborts + metadata.commits);
-
-            // no thread synchonization here but it shouldn't be a problem
-            metadata.aborts = 0;
-            metadata.commits = 0;
+            auto abort_rate = (double)aborts / (double)(aborts + commits);
 
             if (abort_rate < MIN_ABORT_RATE) {
-              metadata.value->remove_node();
+              value->remove_node();
             } else if (abort_rate > MAX_ABORT_RATE) {
-              metadata.value->add_nodes(abort_rate);
+              value->add_nodes(abort_rate);
             }
           }
         }
@@ -114,7 +114,7 @@ auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
   std::cout << "registering " << mrv->get_id() << "\n";
 #endif
   std::unique_lock lock(values_mutex);
-  values[mrv->get_id()] = metadata{.value = mrv, .aborts = 0, .commits = 0};
+  values[mrv->get_id()] = mrv;
 }
 
 auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
