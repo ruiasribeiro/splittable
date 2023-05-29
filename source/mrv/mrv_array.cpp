@@ -6,12 +6,7 @@ std::atomic_uint mrv_array::id_counter{0};
 
 mrv_array::mrv_array(uint size) {
   this->id = mrv_array::id_counter.fetch_add(1, std::memory_order_relaxed);
-
-  this->chunks.reserve(size);
-  for (auto i = 0u; i < size; ++i) {
-    this->chunks.push_back(WSTM::WVar<uint>{0});
-  }
-
+  this->chunks.grow_to_at_least(size);
   this->valid_chunks = WSTM::WVar<size_t>{size};
 }
 
@@ -120,6 +115,7 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
       }
 
       auto new_size = size + to_add;
+      chunks.grow_to_at_least(new_size);
       this->valid_chunks.Set(new_size, at);
 
 #ifdef SPLITTABLE_DEBUG
@@ -128,15 +124,6 @@ auto mrv_array::add_nodes(double abort_rate) -> void {
                   << " | new size: " << new_size << "\n";
       });
 #endif
-
-      auto capacity = this->chunks.size();
-      if (capacity >= new_size) {
-        return;
-      }
-
-      for (auto pushes = new_size - capacity; pushes > 0; --pushes) {
-        chunks.push_back(WSTM::WVar<uint>{0});
-      }
     });
   } catch (...) {
     // there is no problem if an exception is thrown, this will be tried again
