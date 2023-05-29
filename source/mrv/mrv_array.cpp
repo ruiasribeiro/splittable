@@ -45,10 +45,17 @@ auto mrv_array::read(WSTM::WAtomic& at) -> uint {
   // needed here
 
   uint sum = 0;
-  auto size = this->valid_chunks.Get(at);
 
-  for (size_t i = 0; i < size; ++i) {
-    sum += this->chunks.at(i).Get(at);
+  {
+    // this will improve performance since we are reading a lot of variables in
+    // one go
+    WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
+
+    auto size = this->valid_chunks.Get(at);
+
+    for (size_t i = 0; i < size; ++i) {
+      sum += this->chunks.at(i).Get(at);
+    }
   }
 
   return sum;
