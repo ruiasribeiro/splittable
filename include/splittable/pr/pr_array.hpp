@@ -25,6 +25,10 @@ class pr_array : public pr {
   using Single = uint;
   using Splitted = splitted;
 
+  // 16 bits for each of the counters: aborts, aborts_for_no_stock, commits,
+  // waiting
+  std::atomic_uint64_t status_counters;
+
   uint id;
 
   // I would like to use a std::variant here but it doesn't seem to play nicely
@@ -46,6 +50,12 @@ class pr_array : public pr {
   auto static delete_pr(std::shared_ptr<pr>) -> void;
 
   auto get_id() -> uint;
+
+  auto add_aborts(uint count) -> void;
+  auto add_aborts_for_no_stock(uint count) -> void;
+  auto add_waiting(uint count) -> void;
+  auto add_commits(uint count) -> void;
+  auto fetch_and_reset_status() -> status;
 
   auto read(WSTM::WAtomic& at) -> uint;
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;

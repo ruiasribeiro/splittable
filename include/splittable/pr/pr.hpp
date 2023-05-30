@@ -6,6 +6,13 @@
 
 namespace splittable::pr {
 
+struct status {
+  uint aborts;
+  uint aborts_for_no_stock;
+  uint commits;
+  uint waiting;
+};
+
 enum split_operation { split_operation_addsub };
 
 class pr : public splittable {
@@ -14,6 +21,12 @@ class pr : public splittable {
 
  public:
   auto virtual get_id() -> uint = 0;
+
+  auto virtual add_aborts(uint count) -> void = 0;
+  auto virtual add_aborts_for_no_stock(uint count) -> void = 0;
+  auto virtual add_waiting(uint count) -> void = 0;
+  auto virtual add_commits(uint count) -> void = 0;
+  auto virtual fetch_and_reset_status() -> status = 0;
 
   auto virtual register_thread() -> void = 0;
   // auto unregister_thread() -> void = 0;

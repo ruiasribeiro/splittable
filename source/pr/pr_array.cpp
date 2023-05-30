@@ -26,20 +26,46 @@ auto pr_array::delete_pr(std::shared_ptr<pr> obj) -> void {
 
 auto pr_array::get_id() -> uint { return this->id; }
 
-auto report_status(txn_status status, uint id) {
-  manager::get_instance().report_txn(status, id);
+auto pr_array::add_aborts(uint count) -> void {
+  this->status_counters.fetch_add(((ulong)count) << 48,
+                                  std::memory_order_relaxed);
 }
 
-auto setup_actions(WSTM::WAtomic& at, uint id) {
-  at.OnFail([id]() { report_status(txn_status_aborted, id); });
-  at.After([id]() { report_status(txn_status_completed, id); });
+auto pr_array::add_aborts_for_no_stock(uint count) -> void {
+  this->status_counters.fetch_add(((ulong)count) << 32,
+                                  std::memory_order_relaxed);
+}
+
+auto pr_array::add_commits(uint count) -> void {
+  this->status_counters.fetch_add(((ulong)count) << 16,
+                                  std::memory_order_relaxed);
+}
+
+auto pr_array::add_waiting(uint count) -> void {
+  this->status_counters.fetch_add((ulong)count, std::memory_order_relaxed);
+}
+
+auto pr_array::fetch_and_reset_status() -> status {
+  auto counters =
+      this->status_counters.fetch_and(0u, std::memory_order_relaxed);
+
+  uint waiting = (counters & 0x000000000000FFFF);
+  uint commits = (counters & 0x00000000FFFF0000) >> 16;
+  uint aborts_for_no_stock = (counters & 0x0000FFFF00000000) >> 32;
+  uint aborts = (counters & 0xFFFF000000000000) >> 48;
+
+  return {.aborts = aborts,
+          .aborts_for_no_stock = aborts_for_no_stock,
+          .commits = commits,
+          .waiting = waiting};
 }
 
 auto pr_array::read(WSTM::WAtomic& at) -> uint {
-  setup_actions(at, this->id);
+  at.OnFail([this]() { this->add_aborts(1); });
+  at.After([this]() { this->add_commits(1); });
 
   if (this->is_splitted.Get(at)) {
-    report_status(txn_status_waiting, id);
+    this->add_waiting(1);
     WSTM::Retry(at);
   }
 
@@ -47,13 +73,14 @@ auto pr_array::read(WSTM::WAtomic& at) -> uint {
 }
 
 auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
-  setup_actions(at, this->id);
+  at.OnFail([this]() { this->add_aborts(1); });
+  at.After([this]() { this->add_commits(1); });
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
 
     if (splitted->op != split_operation_addsub) {
-      report_status(txn_status_waiting, id);
+      this->add_waiting(1);
       WSTM::Retry(at);
     }
 
@@ -67,13 +94,14 @@ auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
 }
 
 auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
-  setup_actions(at, this->id);
+  at.OnFail([this]() { this->add_aborts(1); });
+  at.After([this]() { this->add_commits(1); });
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
 
     if (splitted->op != split_operation_addsub) {
-      report_status(txn_status_waiting, id);
+      this->add_waiting(1);
       WSTM::Retry(at);
     }
 
@@ -82,7 +110,7 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
 
     if (current_chunk < to_sub) {
       // TODO: change this to a better exception
-      report_status(txn_status_insufficient_value, id);
+      this->add_aborts_for_no_stock(1);
       throw std::exception();
     }
 
@@ -92,7 +120,7 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
 
     if (current_value < to_sub) {
       // TODO: change this to a better exception
-      report_status(txn_status_insufficient_value, id);
+      this->add_aborts_for_no_stock(1);
       throw std::exception();
     }
 
@@ -160,7 +188,9 @@ auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
   }
 
   this->is_splitted.Set(true, at);
-  // at.After([]() { std::cout << "splitted\n"; });
+#ifdef SPLITTABLE_DEBUG
+  at.After([id = this->id]() { std::cout << "splitted id=" << id << "\n"; });
+#endif
 }
 
 auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
@@ -189,7 +219,10 @@ auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
   }
 
   this->is_splitted.Set(false, at);
-  // at.After([]() { std::cout << "reconcillied\n"; });
+#ifdef SPLITTABLE_DEBUG
+  at.After(
+      [id = this->id]() { std::cout << "reconcillied id=" << id << "\n"; });
+#endif
 }
 
 }  // namespace splittable::pr
