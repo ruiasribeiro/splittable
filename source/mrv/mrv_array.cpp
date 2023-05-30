@@ -2,10 +2,8 @@
 
 namespace splittable::mrv {
 
-std::atomic_uint mrv_array::id_counter{0};
-
 mrv_array::mrv_array(uint size) {
-  this->id = mrv_array::id_counter.fetch_add(1, std::memory_order_relaxed);
+  this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
   this->chunks.grow_to_at_least(size);
   this->valid_chunks = WSTM::WVar<size_t>{size};
 }

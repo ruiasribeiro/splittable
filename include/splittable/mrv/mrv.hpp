@@ -1,6 +1,6 @@
 #pragma once
 
-#include <memory>
+#include <atomic>
 
 #include "splittable/splittable.hpp"
 
@@ -18,6 +18,9 @@ const uint MAX_NODES = 1024;
 const uint MIN_BALANCE_DIFF = 5;
 
 class mrv : public splittable {
+ protected:
+  static std::atomic_uint id_counter;
+
  public:
   // auto virtual static new_mrv(uint size) -> std::shared_ptr<mrv> = 0;
   // auto virtual static delete_mrv(std::shared_ptr<mrv>) -> void = 0;

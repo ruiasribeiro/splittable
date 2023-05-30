@@ -20,9 +20,6 @@ class mrv_array : public mrv {
   // 16 bits for aborts, 16 bits for commits
   std::atomic_uint32_t status_counters;
 
-  // TODO: this counter should be on the parent `mrv` class
-  static std::atomic_uint id_counter;
-
   uint id;
 
   oneapi::tbb::concurrent_vector<WSTM::WVar<uint>> chunks;
