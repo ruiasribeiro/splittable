@@ -144,20 +144,30 @@ auto pr_array::try_transition(double abort_rate, uint waiting,
   // std::cout << "ar=" << abort_rate;
   // TODO: add "total ratio of clients" condition
   if (is_splitted && (waiting > 0 || aborts_for_no_stock > 0)) {
-    WSTM::Atomically([this](WSTM::WAtomic& at) { this->reconcile(at); });
+    try {
+      WSTM::Atomically(
+          [this](WSTM::WAtomic& at) { this->reconcile(at); },
+          WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+    } catch (...) {
+      // there is no problem if an exception is thrown, this will be tried again
+      // later
+    }
   } else if (!is_splitted && abort_rate > 0.65) {
-    // TODO: make it run locked
-    WSTM::Atomically(
-        [this](WSTM::WAtomic& at) {
-          this->split(at, split_operation_addsub);  // there's only one op
-        },
-        WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+    try {
+      WSTM::Atomically(
+          [this](WSTM::WAtomic& at) {
+            this->split(at, split_operation_addsub);  // there's only one op
+          },
+          WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+    } catch (...) {
+      // there is no problem if an exception is thrown, this will be tried again
+      // later
+    }
   }
 }
 
 auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
   if (this->is_splitted.Get(at)) {
-    // TODO: throw a better exception
     throw std::exception();
   }
 
@@ -195,7 +205,6 @@ auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
 
 auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
   if (!this->is_splitted.Get(at)) {
-    // TODO: throw a better exception
     throw std::exception();
   }
 

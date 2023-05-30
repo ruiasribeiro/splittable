@@ -179,27 +179,25 @@ auto mrv_array::balance() -> void {
     j = (i + 1) % num_chunks;
   }
 
-  WSTM::Atomically([&](WSTM::WAtomic& at) {
-    auto ci = chunks.at(i).Get(at);
-    auto cj = chunks.at(j).Get(at);
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto ci = chunks.at(i).Get(at);
+      auto cj = chunks.at(j).Get(at);
 
-    if (ci <= cj + MIN_BALANCE_DIFF && cj <= ci + MIN_BALANCE_DIFF) {
-      // the difference isn't enough to balance, abort
-      // TODO: use an abort?
-      return;
-    }
+      if (ci <= cj + MIN_BALANCE_DIFF && cj <= ci + MIN_BALANCE_DIFF) {
+        throw exception();
+      }
 
-    auto new_value = (ci + cj) / 2;
-    auto remainder = (ci + cj) % 2;
+      auto new_value = (ci + cj) / 2;
+      auto remainder = (ci + cj) % 2;
 
-    chunks[i].Set(new_value + remainder, at);
-    chunks[j].Set(new_value, at);
-
-    // at.After([=]() {
-    //   std::cout << "Balance: " << ci << " " << cj << " -> "
-    //             << new_value + remainder << " " << new_value << "\n";
-    // });
-  });
+      chunks[i].Set(new_value + remainder, at);
+      chunks[j].Set(new_value, at);
+    });
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next balance phase
+  }
 }
 
 }  // namespace splittable::mrv

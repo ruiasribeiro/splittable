@@ -18,7 +18,7 @@ class manager {
   // TODO: I could change this to a concurrent_hash_map fron oneTBB, check if it
   // is worth it
   std::unordered_map<uint, std::shared_ptr<pr>> values;
-  // exclusive -> when the main manager thread is adding/removing MRVs;
+  // exclusive -> when the main manager thread is adding/removing PRs;
   // shared -> when the secondary workers are iterating through the map
   std::shared_mutex values_mutex;
 
