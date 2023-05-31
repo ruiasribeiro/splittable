@@ -23,7 +23,8 @@ class mrv_flex_vector : public mrv {
 
   uint id;
 
-  immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>> chunks;
+  using chunks_type = WSTM::WVar<immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>>;
+  chunks_type chunks;
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later

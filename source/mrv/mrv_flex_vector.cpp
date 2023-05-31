@@ -9,7 +9,7 @@ mrv_flex_vector::mrv_flex_vector(uint size) {
   for (auto i = 0u; i < size; ++i) {
     t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
   }
-  this->chunks = t.persistent();
+  this->chunks = chunks_type(t.persistent());
 }
 
 auto mrv_flex_vector::new_mrv(uint size) -> std::shared_ptr<mrv> {
@@ -47,13 +47,13 @@ auto mrv_flex_vector::read(WSTM::WAtomic& at) -> uint {
   // needed here
 
   uint sum = 0;
+  auto chunks = this->chunks.Get(at);
 
   {
     // this will improve performance since we are reading a lot of variables in
     // one go
     WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
 
-    auto chunks = this->chunks;
     for (auto&& value : chunks) {
       sum += value->Get(at);
     }
@@ -66,7 +66,7 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
   at.OnFail([this]() { this->add_aborts(1u); });
   at.After([this]() { this->add_commits(1u); });
 
-  auto chunks = this->chunks;
+  auto chunks = this->chunks.Get(at);
   auto index = utils::random_index(0, chunks.size() - 1);
 
   auto current_value = chunks.at(index)->Get(at);
@@ -78,7 +78,7 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   at.OnFail([this]() { this->add_aborts(1u); });
   at.After([this]() { this->add_commits(1u); });
 
-  auto chunks = this->chunks;
+  auto chunks = this->chunks.Get(at);
   auto size = chunks.size();
   auto start = utils::random_index(0, size - 1);
   auto index = start;
@@ -107,75 +107,89 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
-  auto chunks = this->chunks;
-  auto size = chunks.size();
+  try {
+    auto new_size = WSTM::Atomically([&](WSTM::WAtomic& at) -> ulong {
+      auto chunks = this->chunks.Get(at);
+      auto size = chunks.size();
 
-  // TODO: this is not exactly like the original impl, revise later
-  if (size >= MAX_NODES) {
-    return;
-  }
+      // TODO: this is not exactly like the original impl, revise later
+      if (size >= MAX_NODES) {
+        throw std::exception();
+      }
 
-  auto to_add =
-      std::min((size_t)std::lround(1 + size * abort_rate), MAX_NODES - size);
+      auto to_add = std::min((size_t)std::lround(1 + size * abort_rate),
+                             MAX_NODES - size);
 
-  if (to_add < 1) {
-    return;
-  }
+      if (to_add < 1) {
+        throw std::exception();
+      }
 
-  auto new_size = size + to_add;
-  auto t = chunks.transient();
-  for (auto i = 0u; i < to_add; ++i) {
-    t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
-  }
-  this->chunks = t.persistent();
+      auto new_size = size + to_add;
+      auto t = chunks.transient();
+      for (auto i = 0u; i < to_add; ++i) {
+        t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
+      }
+      this->chunks = chunks_type(t.persistent());
+
+      return new_size;
+    });
 
 #ifdef SPLITTABLE_DEBUG
-  std::cout << "increased id=" << id << " w/abort " << abort_rate
-            << " | new size: " << new_size << "\n";
+    std::cout << "increased id=" << id << " w/abort " << abort_rate
+              << " | new size: " << new_size << "\n";
 #endif
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next adjustment phase
+  }
 }
 
 auto mrv_flex_vector::remove_node() -> void {
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto chunks = this->chunks.Get(at);
+      auto size = chunks.size();
+
+      // TODO: check if removing does not go below min nodes
+      if (size < 2) {
+        throw std::exception();
+      }
+
+      // move data to existing record
+      auto last_chunk = chunks.at(size - 1)->Get(at);
+      auto absorber_index = utils::random_index(0, size - 2);
+      auto absorber = chunks.at(absorber_index);
+      absorber->Set(absorber->Get(at) + last_chunk, at);
+
+      this->chunks = chunks_type(chunks.take(size - 1));
+    });
+
 #ifdef SPLITTABLE_DEBUG
-  std::cout << "attempt to decrease id=" << this->id << "\n";
+    std::cout << "decreased id=" << this->id << " by one\n";
 #endif
-
-  auto chunks = this->chunks;
-  auto size = chunks.size();
-
-  // TODO: check if removing does not go below min nodes
-  if (size < 2) {
-    return;
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next adjustment phase
   }
-
-  WSTM::Atomically([&](WSTM::WAtomic& at) {
-    // move data to existing record
-    auto last_chunk = chunks.at(size - 1)->Get(at);
-    auto absorber_index = utils::random_index(0, size - 2);
-    auto absorber = chunks.at(absorber_index);
-    absorber->Set(absorber->Get(at) + last_chunk, at);
-  });
-
-  this->chunks = chunks.take(size - 1);
 }
 
 auto mrv_flex_vector::balance() -> void {
-  auto chunks = this->chunks;
-  auto size = chunks.size();
-
-  if (size < 2) {
-    return;
-  }
-
-  auto i = utils::random_index(0, size - 1);
-  auto j = utils::random_index(0, size - 1);
-
-  if (i == j) {
-    j = (i + 1) % size;
-  }
-
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto chunks = this->chunks.Get(at);
+      auto size = chunks.size();
+
+      if (size < 2) {
+        return;
+      }
+
+      auto i = utils::random_index(0, size - 1);
+      auto j = utils::random_index(0, size - 1);
+
+      if (i == j) {
+        j = (i + 1) % size;
+      }
+
       auto ci = chunks.at(i)->Get(at);
       auto cj = chunks.at(j)->Get(at);
 
