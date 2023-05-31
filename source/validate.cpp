@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "splittable/mrv/mrv_array.hpp"
+#include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
 #include "wstm/stm.h"
 
@@ -15,6 +16,8 @@
 #define CACHE_LINE_SIZE 64
 #define VALUE_SIZE 8
 #define PADDING (CACHE_LINE_SIZE / VALUE_SIZE)
+
+using namespace std::chrono_literals;
 
 double waste_time(size_t iterations) {
   auto value = 1;
@@ -77,6 +80,53 @@ uint run_mrv_array(size_t workers) {
       bar.wait();
 
       for (auto j = 0ul; j < workload; j++) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(TIME_PADDING);
+          value->add(at, 1);
+          val = waste_time(TIME_PADDING);
+        });
+      }
+
+      volatile auto avoid_optimisation = val;
+    });
+  }
+
+  bar.wait();
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i].join();
+  }
+
+  auto result =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+
+  return result;
+}
+
+uint run_mrv_flex_vector(size_t workers) {
+  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
+  auto threads = std::make_unique<std::thread[]>(workers);
+
+  boost::barrier bar(workers + 1);
+
+  const auto workload = TOTAL_ITERATIONS / workers;
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i] = std::thread([&, i, workload]() {
+      double val;
+      bar.wait();
+
+      for (auto j = 0ul; j < workload / 2; j++) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(TIME_PADDING);
+          value->add(at, 1);
+          val = waste_time(TIME_PADDING);
+        });
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(5000 - (i * 100)));
+
+      for (auto j = 0ul; j < workload / 2; j++) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(TIME_PADDING);
           value->add(at, 1);
@@ -167,11 +217,15 @@ int main(int argc, char const* argv[]) {
     result = run_single(workers);
   } else if (test == "mrv-array") {
     result = run_mrv_array(workers);
+  } else if (test == "mrv-flex-vector") {
+    result = run_mrv_flex_vector(workers);
   } else if (test == "pr-array") {
     result = run_pr_array(workers);
   } else {
-    std::cerr << "could not find a test with name \"" << test
-              << "\"; try\"single\", \"mrv-array\", \"pr-array\"" << std::endl;
+    std::cerr
+        << "could not find a test with name \"" << test
+        << "\"; try\"single\", \"mrv-array\", \"mrv-flex-vector\", \"pr-array\""
+        << std::endl;
     return 1;
   }
 

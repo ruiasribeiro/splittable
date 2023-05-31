@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "splittable/mrv/mrv_array.hpp"
+#include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
 #include "splittable/utils/random.hpp"
 #include "wstm/stm.h"
@@ -97,6 +98,61 @@ result_t bm_mrv_array(size_t workers, size_t read_percentage,
                       seconds duration) {
   auto total_reads = std::atomic_uint(0);
   auto value = splittable::mrv::mrv_array::new_mrv(1);
+  auto threads = std::make_unique<std::thread[]>(workers);
+
+  boost::barrier bar(workers + 1);
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i] = std::thread([&, i, duration]() {
+      double val;
+      size_t reads;
+
+      bar.wait();
+
+      auto now = high_resolution_clock::now;
+      auto start = now();
+
+      while ((now() - start) < duration) {
+        auto does_read =
+            splittable::utils::random_index(1, 100) <= read_percentage;
+
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(TIME_PADDING);
+
+          if (does_read) {
+            value->read(at);
+            reads++;
+          } else {
+            value->add(at, 1);
+          }
+
+          val = waste_time(TIME_PADDING);
+        });
+      }
+
+      volatile auto avoid_optimisation = val;
+      total_reads.fetch_add(reads);
+    });
+  }
+
+  bar.wait();
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i].join();
+  }
+
+  auto writes =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+
+  result_t result = {.writes = writes, .reads = total_reads.load()};
+
+  return result;
+}
+
+result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
+                            seconds duration) {
+  auto total_reads = std::atomic_uint(0);
+  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -259,11 +315,14 @@ int main(int argc, char const* argv[]) {
     count = bm_single(workers, read_percentage, execution_time);
   } else if (benchmark == "mrv-array") {
     count = bm_mrv_array(workers, read_percentage, execution_time);
+  } else if (benchmark == "mrv-flex-vector") {
+    count = bm_mrv_flex_vector(workers, read_percentage, execution_time);
   } else if (benchmark == "pr-array") {
     count = bm_pr_array(workers, read_percentage, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
-              << "\"; try\"single\", \"mrv-array\", \"pr-array\"\n";
+              << "\"; try\"single\", \"mrv-array\", \"mrv-flex-vector\", "
+                 "\"pr-array\"\n";
     return 1;
   }
 

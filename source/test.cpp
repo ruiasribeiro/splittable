@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "splittable/mrv/mrv_array.hpp"
+#include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
 #include "wstm/stm.h"
 
@@ -75,6 +76,44 @@ long long bm_single(size_t workers, seconds duration) {
 
 long long bm_mrv_array(size_t workers, seconds duration) {
   auto value = splittable::mrv::mrv_array::new_mrv(1);
+  auto threads = std::make_unique<std::thread[]>(workers);
+
+  boost::barrier bar(workers + 1);
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i] = std::thread([&, i, duration]() {
+      double val;
+      bar.wait();
+
+      auto now = high_resolution_clock::now;
+      auto start = now();
+
+      while ((now() - start) < duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(TIME_PADDING);
+          value->add(at, 1);
+          val = waste_time(TIME_PADDING);
+        });
+      }
+
+      volatile auto avoid_optimisation = val;
+    });
+  }
+
+  bar.wait();
+
+  for (size_t i = 0; i < workers; i++) {
+    threads[i].join();
+  }
+
+  auto result =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+
+  return result;
+}
+
+long long bm_mrv_flex_vector(size_t workers, seconds duration) {
+  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -192,11 +231,14 @@ int main(int argc, char const* argv[]) {
     count = bm_single(workers, execution_time);
   } else if (benchmark == "mrv-array") {
     count = bm_mrv_array(workers, execution_time);
+  } else if (benchmark == "mrv-flex-vector") {
+    count = bm_mrv_flex_vector(workers, execution_time);
   } else if (benchmark == "pr-array") {
     count = bm_pr_array(workers, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
-              << "\"; try\"single\", \"mrv-array\", \"pr-array\"\n";
+              << "\"; try\"single\", \"mrv-array\", "
+                 "\"mrv-flex-vector\",\"pr-array\"\n";
     return 1;
   }
 
