@@ -2,10 +2,11 @@
 
 #include <iostream>
 #include <memory>
-#include <shared_mutex>
+#include <mutex>
 #include <thread>
 #include <unordered_map>
 
+#include "immer/map.hpp"
 #include "splittable/pr/pr.hpp"
 
 namespace splittable::pr {
@@ -14,13 +15,10 @@ class manager {
  private:
   inline static const auto PHASE_INTERVAL = std::chrono::milliseconds(20);
 
-  // {ID -> PR}
-  // TODO: I could change this to a concurrent_hash_map fron oneTBB, check if it
-  // is worth it
-  std::unordered_map<uint, std::shared_ptr<pr>> values;
-  // exclusive -> when the main manager thread is adding/removing PRs;
-  // shared -> when the secondary workers are iterating through the map
-  std::shared_mutex values_mutex;
+  using values_type = immer::map<uint, std::shared_ptr<pr>>;
+
+  values_type values;
+  std::mutex values_mutex;  // needed to prevent data races on the assignment
 
   // the constructor is private to make this class a singleton
   manager();

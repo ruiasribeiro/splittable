@@ -9,9 +9,13 @@ manager::manager() {
         while (true) {
           std::this_thread::sleep_for(BALANCE_INTERVAL);
 
-          // TODO: improve this
-          // I don't like this lock here, could affect performance negatively
-          std::shared_lock lock(values_mutex);
+          values_type values;
+          {
+            // the structure is immutable, we only need the lock to fetch it
+            std::lock_guard<std::mutex> lock(this->values_mutex);
+            values = this->values;
+          }
+
           for (auto&& [_, value] : values) {
             value->balance();
           }
@@ -25,9 +29,13 @@ manager::manager() {
         while (true) {
           std::this_thread::sleep_for(ADJUST_INTERVAL);
 
-          // TODO: improve this
-          // I don't like this lock here, could affect performance negatively
-          std::shared_lock lock(values_mutex);
+          values_type values;
+          {
+            // the structure is immutable, we only need the lock to fetch it
+            std::lock_guard<std::mutex> lock(this->values_mutex);
+            values = this->values;
+          }
+
           for (auto&& [id, value] : values) {
             auto counters = value->fetch_and_reset_status();
 
@@ -63,16 +71,36 @@ auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
 #ifdef SPLITTABLE_DEBUG
   std::cout << "registering " << mrv->get_id() << "\n";
 #endif
-  std::unique_lock lock(values_mutex);
-  values[mrv->get_id()] = mrv;
+  values_type values;
+  {
+    std::lock_guard<std::mutex> lock(this->values_mutex);
+    values = this->values;
+  }
+
+  values = values.set(mrv->get_id(), mrv);
+
+  {
+    std::lock_guard<std::mutex> lock(this->values_mutex);
+    this->values = values;
+  }
 }
 
 auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
 #ifdef SPLITTABLE_DEBUG
   std::cout << "deregistering " << mrv->get_id() << "\n";
 #endif
-  std::unique_lock lock(values_mutex);
-  values.erase(mrv->get_id());
+  values_type values;
+  {
+    std::lock_guard<std::mutex> lock(this->values_mutex);
+    values = this->values;
+  }
+
+  values = values.erase(mrv->get_id());
+
+  {
+    std::lock_guard<std::mutex> lock(this->values_mutex);
+    this->values = values;
+  }
 }
 
 }  // namespace splittable::mrv
