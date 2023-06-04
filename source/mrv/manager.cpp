@@ -71,6 +71,7 @@ auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
 #ifdef SPLITTABLE_DEBUG
   std::cout << "registering " << mrv->get_id() << "\n";
 #endif
+
   values_type values;
   {
     std::lock_guard<std::mutex> lock(this->values_mutex);
@@ -89,6 +90,7 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
 #ifdef SPLITTABLE_DEBUG
   std::cout << "deregistering " << mrv->get_id() << "\n";
 #endif
+
   values_type values;
   {
     std::lock_guard<std::mutex> lock(this->values_mutex);

@@ -109,8 +109,8 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
     auto current_chunk = chunk->Get(at);
 
     if (current_chunk < to_sub) {
-      // TODO: change this to a better exception
       this->add_aborts_for_no_stock(1);
+      // TODO: change this to a better exception
       throw std::exception();
     }
 
@@ -119,8 +119,8 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
     auto current_value = this->single_value.Get(at);
 
     if (current_value < to_sub) {
-      // TODO: change this to a better exception
       this->add_aborts_for_no_stock(1);
+      // TODO: change this to a better exception
       throw std::exception();
     }
 
@@ -147,7 +147,7 @@ auto pr_array::try_transition(double abort_rate, uint waiting,
     try {
       WSTM::Atomically(
           [this](WSTM::WAtomic& at) { this->reconcile(at); },
-          WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+          WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
     } catch (...) {
       // there is no problem if an exception is thrown, this will be tried again
       // later
@@ -158,7 +158,7 @@ auto pr_array::try_transition(double abort_rate, uint waiting,
           [this](WSTM::WAtomic& at) {
             this->split(at, split_operation_addsub);  // there's only one op
           },
-          WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+          WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
     } catch (...) {
       // there is no problem if an exception is thrown, this will be tried again
       // later
