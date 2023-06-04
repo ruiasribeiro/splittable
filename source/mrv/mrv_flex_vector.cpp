@@ -180,28 +180,38 @@ auto mrv_flex_vector::balance() -> void {
       auto size = chunks.size();
 
       if (size < 2) {
-        return;
-      }
-
-      auto i = utils::random_index(0, size - 1);
-      auto j = utils::random_index(0, size - 1);
-
-      if (i == j) {
-        j = (i + 1) % size;
-      }
-
-      auto ci = chunks.at(i)->Get(at);
-      auto cj = chunks.at(j)->Get(at);
-
-      if (ci <= cj + MIN_BALANCE_DIFF && cj <= ci + MIN_BALANCE_DIFF) {
         throw exception();
       }
 
-      auto new_value = (ci + cj) / 2;
-      auto remainder = (ci + cj) % 2;
+      auto min_i = 0u;
+      auto min_v = UINT_MAX;
+      auto max_i = 0u;
+      auto max_v = 0u;
 
-      chunks[i]->Set(new_value + remainder, at);
-      chunks[j]->Set(new_value, at);
+      uint read_value;
+      for (auto i = 0u; i < size; ++i) {
+        read_value = chunks.at(i)->Get(at);
+
+        if (read_value > max_v) {
+          max_v = read_value;
+          max_i = i;
+        }
+
+        if (read_value <= min_v) {
+          min_v = read_value;
+          min_i = i;
+        }
+      }
+
+      if (min_i == max_i || max_v - min_v <= MIN_BALANCE_DIFF) {
+        throw exception();
+      }
+
+      auto new_value = (max_v + min_v) / 2;
+      auto remainder = (max_v + min_v) % 2;
+
+      chunks.at(min_i)->Set(new_value + remainder, at);
+      chunks.at(max_i)->Set(new_value, at);
     });
   } catch (...) {
     // there is no problem if an exception is thrown, this will be tried again
