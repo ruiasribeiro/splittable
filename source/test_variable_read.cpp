@@ -67,7 +67,6 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
 
           if (does_read) {
             value.Get(at);
-            reads++;
           } else {
             auto current_value = value.Get(at);
             value.Set(current_value + 1, at);
@@ -75,6 +74,10 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
 
           val = waste_time(TIME_PADDING);
         });
+
+        if (does_read) {
+          reads++;
+        }
       }
 
       volatile auto avoid_optimisation = val;
@@ -121,13 +124,16 @@ result_t bm_mrv_array(size_t workers, size_t read_percentage,
 
           if (does_read) {
             value->read(at);
-            reads++;
           } else {
             value->add(at, 1);
           }
 
           val = waste_time(TIME_PADDING);
         });
+
+        if (does_read) {
+          reads++;
+        }
       }
 
       volatile auto avoid_optimisation = val;
@@ -176,13 +182,16 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
 
           if (does_read) {
             value->read(at);
-            reads++;
           } else {
             value->add(at, 1);
           }
 
           val = waste_time(TIME_PADDING);
         });
+
+        if (does_read) {
+          reads++;
+        }
       }
 
       volatile auto avoid_optimisation = val;
@@ -233,13 +242,16 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
 
           if (does_read) {
             value->read(at);
-            reads++;
           } else {
             value->add(at, 1);
           }
 
           val = waste_time(TIME_PADDING);
         });
+
+        if (does_read) {
+          reads++;
+        }
       }
 
       volatile auto avoid_optimisation = val;
