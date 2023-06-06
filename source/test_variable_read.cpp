@@ -51,7 +51,7 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
       double val;
-      size_t reads;
+      size_t reads = 0;
 
       bar.wait();
 
@@ -108,7 +108,7 @@ result_t bm_mrv_array(size_t workers, size_t read_percentage,
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
       double val;
-      size_t reads;
+      size_t reads = 0;
 
       bar.wait();
 
@@ -166,7 +166,7 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
       double val;
-      size_t reads;
+      size_t reads = 0;
 
       bar.wait();
 
@@ -226,7 +226,7 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
       value->register_thread();
 
       double val;
-      size_t reads;
+      size_t reads = 0;
 
       bar.wait();
 
