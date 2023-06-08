@@ -10,8 +10,6 @@
 #include "splittable/pr/pr_array.hpp"
 #include "wstm/stm.h"
 
-#define TIME_PADDING 100000
-
 #define CACHE_LINE_SIZE 64
 #define VALUE_SIZE 8
 #define PADDING (CACHE_LINE_SIZE / VALUE_SIZE)
@@ -34,7 +32,7 @@ double waste_time(size_t iterations) {
   return value;
 }
 
-long long bm_single(size_t workers, seconds duration) {
+long long bm_single(size_t workers, seconds duration, int time_padding) {
   auto value = WSTM::WVar<uint>(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
@@ -50,12 +48,12 @@ long long bm_single(size_t workers, seconds duration) {
 
       while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
 
           auto current_value = value.Get(at);
           value.Set(current_value + 1, at);
 
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
         });
       }
 
@@ -74,7 +72,7 @@ long long bm_single(size_t workers, seconds duration) {
   return result;
 }
 
-long long bm_mrv_array(size_t workers, seconds duration) {
+long long bm_mrv_array(size_t workers, seconds duration, int time_padding) {
   auto value = splittable::mrv::mrv_array::new_mrv(1);
   auto threads = std::make_unique<std::thread[]>(workers);
 
@@ -90,9 +88,9 @@ long long bm_mrv_array(size_t workers, seconds duration) {
 
       while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
           value->add(at, 1);
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
         });
       }
 
@@ -112,7 +110,8 @@ long long bm_mrv_array(size_t workers, seconds duration) {
   return result;
 }
 
-long long bm_mrv_flex_vector(size_t workers, seconds duration) {
+long long bm_mrv_flex_vector(size_t workers, seconds duration,
+                             int time_padding) {
   auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
   auto threads = std::make_unique<std::thread[]>(workers);
 
@@ -128,9 +127,9 @@ long long bm_mrv_flex_vector(size_t workers, seconds duration) {
 
       while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
           value->add(at, 1);
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
         });
       }
 
@@ -150,7 +149,7 @@ long long bm_mrv_flex_vector(size_t workers, seconds duration) {
   return result;
 }
 
-long long bm_pr_array(size_t workers, seconds duration) {
+long long bm_pr_array(size_t workers, seconds duration, int time_padding) {
   splittable::pr::pr_array::set_num_threads(workers);
   auto value = splittable::pr::pr_array::new_pr();
   auto threads = std::make_unique<std::thread[]>(workers);
@@ -169,9 +168,9 @@ long long bm_pr_array(size_t workers, seconds duration) {
 
       while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
           value->add(at, 1);
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
         });
       }
 
@@ -192,9 +191,9 @@ long long bm_pr_array(size_t workers, seconds duration) {
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 4) {
-    std::cerr << "requires 3 positional arguments: benchmark, number of "
-                 "workers, execution time (s)\n";
+  if (argc < 5) {
+    std::cerr << "requires 4 positional arguments: benchmark, number of "
+                 "workers, execution time (s), padding\n";
     return 1;
   }
 
@@ -224,17 +223,30 @@ int main(int argc, char const* argv[]) {
     return 1;
   }
 
+  int padding;
+  try {
+    padding = std::stoi(argv[4]);
+  } catch (...) {
+    std::cerr << "could not convert \"" << argv[4] << "\" to an integer\n";
+    return 1;
+  }
+
+  if (padding < 0) {
+    std::cerr << "the padding must be a non-negative integer\n";
+    return 1;
+  }
+
   std::string benchmark(argv[1]);
 
   long long count;
   if (benchmark == "single") {
-    count = bm_single(workers, execution_time);
+    count = bm_single(workers, execution_time, padding);
   } else if (benchmark == "mrv-array") {
-    count = bm_mrv_array(workers, execution_time);
+    count = bm_mrv_array(workers, execution_time, padding);
   } else if (benchmark == "mrv-flex-vector") {
-    count = bm_mrv_flex_vector(workers, execution_time);
+    count = bm_mrv_flex_vector(workers, execution_time, padding);
   } else if (benchmark == "pr-array") {
-    count = bm_pr_array(workers, execution_time);
+    count = bm_pr_array(workers, execution_time, padding);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
               << "\"; try\"single\", \"mrv-array\", "
@@ -242,9 +254,10 @@ int main(int argc, char const* argv[]) {
     return 1;
   }
 
-  // CSV header: benchmark, workers, execution time, # of commited operations
+  // CSV header: benchmark, workers, execution time, padding, # of commited
+  // operations
   std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << count << "\n";
+            << "," << padding << "," << count << "\n";
 
   // return 0;
   quick_exit(0);
