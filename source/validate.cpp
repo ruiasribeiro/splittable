@@ -5,7 +5,6 @@
 #include <mutex>
 #include <thread>
 
-#include "splittable/mrv/mrv_array.hpp"
 #include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
 #include "wstm/stm.h"
@@ -64,43 +63,6 @@ uint run_single(size_t workers) {
   }
 
   return value.GetReadOnly();
-}
-
-uint run_mrv_array(size_t workers) {
-  auto value = splittable::mrv::mrv_array::new_mrv(1);
-  auto threads = std::make_unique<std::thread[]>(workers);
-
-  boost::barrier bar(workers + 1);
-
-  const auto workload = TOTAL_ITERATIONS / workers;
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, workload]() {
-      double val;
-      bar.wait();
-
-      for (auto j = 0ul; j < workload; j++) {
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
-          value->add(at, 1);
-          val = waste_time(TIME_PADDING);
-        });
-      }
-
-      volatile auto avoid_optimisation = val;
-    });
-  }
-
-  bar.wait();
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i].join();
-  }
-
-  auto result =
-      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
-
-  return result;
 }
 
 uint run_mrv_flex_vector(size_t workers) {
@@ -215,8 +177,6 @@ int main(int argc, char const* argv[]) {
   uint result;
   if (test == "single") {
     result = run_single(workers);
-  } else if (test == "mrv-array") {
-    result = run_mrv_array(workers);
   } else if (test == "mrv-flex-vector") {
     result = run_mrv_flex_vector(workers);
   } else if (test == "pr-array") {
@@ -224,7 +184,7 @@ int main(int argc, char const* argv[]) {
   } else {
     std::cerr
         << "could not find a test with name \"" << test
-        << "\"; try\"single\", \"mrv-array\", \"mrv-flex-vector\", \"pr-array\""
+        << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\""
         << std::endl;
     return 1;
   }
