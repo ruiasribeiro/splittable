@@ -1,19 +1,41 @@
+# Based on https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
+
 CXX      = g++-12
-CXXFLAGS = -Wall -Wextra -Wpedantic -std=c++17 -g #-DSPLITTABLE_DEBUG
-LDFLAGS  = -lpthread -lwstm -lboost_thread
+TARGETS  = $(basename $(notdir $(wildcard apps/*.cpp)))
+BINARIES = $(TARGETS:%=$(BUILD_DIR)/bin/%)
 
-INC_DIR = include
-LIB_DIR = libraries
-SRC_DIR = source
+BUILD_DIR ?= ./build
+LIB_DIR   ?= ./libraries
+SRC_DIRS  ?= ./source
+EXE_DIRS  ?= ./apps
 
-# from https://stackoverflow.com/questions/2483182/recursive-wildcards-in-gnu-make/18258352#18258352
-rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
-SOURCES := $(call rwildcard,$(SRC_DIR),*.cpp)
+INC_DIRS  := ./include
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-.PHONY: all
-all:
-	${CXX} ${CXXFLAGS} -I${INC_DIR} ${SOURCES} -L${LIB_DIR} ${LDFLAGS}
+# These 3 variables are only related to the library code (source directory).
+SRCS := $(shell find $(SRC_DIRS) -name *.cpp)
+OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
+DEPS := $(OBJS:.o=.d)
+
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic #-DSPLITTABLE_DEBUG
+LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -lstdc++ -lm -lpthread -lboost_thread -lwstm 
+
+all: $(BINARIES)
+
+# Build the executables.
+$(BUILD_DIR)/bin/%: $(BUILD_DIR)/apps/%.cpp.o $(OBJS) 
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(OBJS) $< -o $@ $(LDFLAGS)
+
+# Compile all object files.
+$(BUILD_DIR)/%.cpp.o: %.cpp
+	$(MKDIR_P) $(dir $@)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c $< -o $@
 
 .PHONY: clean
 clean:
-	rm a.out 
+	$(RM) -r $(BUILD_DIR)
+
+-include $(DEPS)
+
+MKDIR_P ?= mkdir -p
