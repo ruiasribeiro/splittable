@@ -9,8 +9,10 @@
 #pragma once
 
 #include <map>
-#include "reservation.h"
+
 #include "customer.h"
+#include "reservation.h"
+#include "wstm/stm.h"
 
 struct manager_t {
   std::map<long, reservation_t*>* carTable;
@@ -31,9 +33,7 @@ struct manager_t {
    * -- Adding to an existing car overwrite the price if 'price' >= 0
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool addCar(long carId, long numCar, long price);
-
+  bool addCar(WSTM::WAtomic& at, long carId, long numCar, long price);
 
   /*
    * deleteCar
@@ -43,9 +43,7 @@ struct manager_t {
    * -- If decresed to 0, deletes entire entry
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool deleteCar(long carId, long numCar);
-
+  bool deleteCar(WSTM::WAtomic& at, long carId, long numCar);
 
   /*
    * addRoom
@@ -53,9 +51,7 @@ struct manager_t {
    * -- Adding to an existing room overwrites the price if 'price' >= 0
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool addRoom(long roomId, long numRoom, long price);
-
+  bool addRoom(WSTM::WAtomic& at, long roomId, long numRoom, long price);
 
   /*
    * deleteRoom
@@ -65,9 +61,7 @@ struct manager_t {
    * -- If decresed to 0, deletes entire entry
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool deleteRoom(long roomId, long numRoom);
-
+  bool deleteRoom(WSTM::WAtomic& at, long roomId, long numRoom);
 
   /*
    * addFlight
@@ -75,8 +69,7 @@ struct manager_t {
    * -- Adding to an existing flight overwrites the price if 'price' >= 0
    * -- Returns TRUE on success, FALSE on failure
    */
-  __attribute__((transaction_safe))
-  bool addFlight(long flightId, long numSeat, long price);
+  bool addFlight(WSTM::WAtomic& at, long flightId, long numSeat, long price);
 
   /*
    * deleteFlight
@@ -84,18 +77,14 @@ struct manager_t {
    * -- Fails if customer has reservation on this flight
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool deleteFlight(long flightId);
-
+  bool deleteFlight(WSTM::WAtomic& at, long flightId);
 
   /*
    * addCustomer
    * -- If customer already exists, returns success
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool addCustomer(long customerId);
-
+  bool addCustomer(WSTM::WAtomic& at, long customerId);
 
   /*
    * deleteCustomer
@@ -103,133 +92,104 @@ struct manager_t {
    * -- If customer does not exist, returns success
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool deleteCustomer(long customerId);
-
+  bool deleteCustomer(WSTM::WAtomic& at, long customerId);
 
   /*
    * QUERY INTERFACE
    */
-
 
   /*
    * queryCar
    * -- Return the number of empty seats on a car
    * -- Returns -1 if the car does not exist
    */
-  __attribute__((transaction_safe))
-  long queryCar(long carId);
-
+  long queryCar(WSTM::WAtomic& at, long carId);
 
   /*
    * queryCarPrice
    * -- Return the price of the car
    * -- Returns -1 if the car does not exist
    */
-  __attribute__((transaction_safe))
-  long queryCarPrice(long carId);
-
+  long queryCarPrice(WSTM::WAtomic& at, long carId);
 
   /*
    * queryRoom
    * -- Return the number of empty seats on a room
    * -- Returns -1 if the room does not exist
    */
-  __attribute__((transaction_safe))
-  long queryRoom(long roomId);
-
+  long queryRoom(WSTM::WAtomic& at, long roomId);
 
   /*
    * queryRoomPrice
    * -- Return the price of the room
    * -- Returns -1 if the room does not exist
    */
-  __attribute__((transaction_safe))
-  long queryRoomPrice(long roomId);
-
+  long queryRoomPrice(WSTM::WAtomic& at, long roomId);
 
   /*
    * queryFlight
    * -- Return the number of empty seats on a flight
    * -- Returns -1 if the flight does not exist
    */
-  __attribute__((transaction_safe))
-  long queryFlight(long flightId);
-
+  long queryFlight(WSTM::WAtomic& at, long flightId);
 
   /*
    * queryFlightPrice
    * -- Return the price of the flight
    * -- Returns -1 if the flight does not exist
    */
-  __attribute__((transaction_safe))
-  long queryFlightPrice(long flightId);
-
+  long queryFlightPrice(WSTM::WAtomic& at, long flightId);
 
   /*
    * queryCustomerBill
    * -- Return the total price of all reservations held for a customer
    * -- Returns -1 if the customer does not exist
    */
-  __attribute__((transaction_safe))
-  long queryCustomerBill(long customerId);
-
+  long queryCustomerBill(WSTM::WAtomic& at, long customerId);
 
   /*
    * RESERVATION INTERFACE
    */
-
 
   /*
    * reserveCar
    * -- Returns failure if the car or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool reserveCar(long customerId, long carId);
-
+  bool reserveCar(WSTM::WAtomic& at, long customerId, long carId);
 
   /*
    * reserveRoom
    * -- Returns failure if the room or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool reserveRoom(long customerId, long roomId);
-
+  bool reserveRoom(WSTM::WAtomic& at, long customerId, long roomId);
 
   /*
    * reserveFlight
    * -- Returns failure if the flight or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool reserveFlight(long customerId, long flightId);
-
+  bool reserveFlight(WSTM::WAtomic& at, long customerId, long flightId);
 
   /*
    * cancelCar
    * -- Returns failure if the car, reservation, or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool cancelCar(long customerId, long carId);
-
+  bool cancelCar(WSTM::WAtomic& at, long customerId, long carId);
 
   /*
    * cancelRoom
    * -- Returns failure if the room, reservation, or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool cancelRoom(long customerId, long roomId);
-
+  bool cancelRoom(WSTM::WAtomic& at, long customerId, long roomId);
 
   /*
    * cancelFlight
    * -- Returns failure if the flight, reservation, or customer does not exist
    * -- Returns TRUE on success, else FALSE
    */
-  __attribute__((transaction_safe))
-  bool cancelFlight(long customerId, long flightId);
+  bool cancelFlight(WSTM::WAtomic& at, long customerId, long flightId);
 };

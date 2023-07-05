@@ -7,8 +7,7 @@
  */
 
 #include <cassert>
-#include "manager.h"
-#include "tm_transition.h"
+#include "splittable/benchmarks/vacation/manager.h"
 
 /* =============================================================================
  * DECLARATION OF TM_SAFE FUNCTIONS

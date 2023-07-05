@@ -8,37 +8,38 @@
 
 #pragma once
 
+#include <cassert>
+#include <cstdlib>
 #include <set>
+
+#include "immer/set.hpp"
 #include "reservation.h"
+#include "wstm/stm.h"
 
 struct customer_t {
-    long id;
-    std::set<reservation_info_t*, bool(*)(reservation_info_t*, reservation_info_t*)>* reservationInfoList;
+  long id;
+  WSTM::WVar<immer::set<reservation_info_t*>> reservationInfoList;
 
-    __attribute__((transaction_safe))
-    customer_t(long id);
+  customer_t(long id);
+  ~customer_t();
 
-    __attribute__((transaction_safe))
-    ~customer_t();
+  /*
+   * customer_addReservationInfo
+   * -- Returns TRUE if success, else FALSE
+   */
+  bool addReservationInfo(WSTM::WAtomic& at, reservation_type_t type, long id,
+                          long price);
 
-    /*
-     * customer_addReservationInfo
-     * -- Returns TRUE if success, else FALSE
-     */
-    __attribute__((transaction_safe))
-    bool addReservationInfo(reservation_type_t type, long id, long price);
+  /*
+   * customer_removeReservationInfo
+   * -- Returns TRUE if success, else FALSE
+   */
+  bool removeReservationInfo(WSTM::WAtomic& at, reservation_type_t type,
+                             long id);
 
-    /*
-     * customer_removeReservationInfo
-     * -- Returns TRUE if success, else FALSE
-     */
-    __attribute__((transaction_safe))
-    bool removeReservationInfo(reservation_type_t type, long id);
-
-    /*
-     * customer_getBill
-     * -- Returns total cost of reservations
-     */
-    __attribute__((transaction_safe))
-    long getBill();
+  /*
+   * customer_getBill
+   * -- Returns total cost of reservations
+   */
+  long getBill(WSTM::WAtomic& at);
 };
