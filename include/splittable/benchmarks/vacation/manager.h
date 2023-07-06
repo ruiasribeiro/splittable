@@ -11,14 +11,15 @@
 #include <map>
 
 #include "customer.h"
+#include "immer/table.hpp"
 #include "reservation.h"
 #include "wstm/stm.h"
 
 struct manager_t {
-  std::map<long, reservation_t*>* carTable;
-  std::map<long, reservation_t*>* roomTable;
-  std::map<long, reservation_t*>* flightTable;
-  std::map<long, customer_t*>* customerTable;
+  WSTM::WVar<immer::table<reservation_t>> carTable;
+  WSTM::WVar<immer::table<reservation_t>> roomTable;
+  WSTM::WVar<immer::table<reservation_t>> flightTable;
+  WSTM::WVar<immer::table<customer_t>> customerTable;
 
   manager_t();
   ~manager_t();

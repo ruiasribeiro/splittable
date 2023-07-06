@@ -12,25 +12,13 @@
  * customer_alloc
  * =============================================================================
  */
-customer_t::customer_t(long _id) {
-  id = _id;
-
-  // NB: must initialize with TM_SAFE compare function
-  reservationInfoList =
-      new std::set<reservation_info_t*,
-                   bool (*)(reservation_info_t*, reservation_info_t*)>(
-          reservation_info_compare);
-  assert(reservationInfoList != NULL);
-}
+customer_t::customer_t(long _id) : id(_id) {}
 
 /* =============================================================================
  * customer_free
  * =============================================================================
  */
-customer_t::~customer_t() {
-  // [mfs] Is this sufficient?  Does it free the whole list?
-  delete (reservationInfoList);
-}
+customer_t::~customer_t() {}
 
 /* =============================================================================
  * customer_addReservationInfo
@@ -39,9 +27,17 @@ customer_t::~customer_t() {
  */
 bool customer_t::addReservationInfo(WSTM::WAtomic& at, reservation_type_t type,
                                     long id, long price) {
-  reservation_info_t* reservationInfoPtr =
-      new reservation_info_t(type, id, price);
-  return reservationInfoList->insert(reservationInfoPtr).second;
+  reservation_info_t reservation_info(type, id, price);
+
+  auto current_list = reservationInfoList.Get(at);
+  auto updated_list = current_list.insert(reservation_info);
+
+  auto did_update = current_list != updated_list;
+  if (did_update) {
+    reservationInfoList.Set(updated_list, at);
+  }
+
+  return did_update;
 }
 
 /* =============================================================================
@@ -56,15 +52,15 @@ bool customer_t::removeReservationInfo(WSTM::WAtomic& at,
   // NB: price not used to compare reservation infos
   reservation_info_t findReservationInfo(type, id, 0);
 
-  reservation_info_t* reservationInfoPtr =
-      *reservationInfoList->find(&findReservationInfo);
+  auto current_list = reservationInfoList.Get(at);
+  auto reservationInfoPtr = current_list.find(findReservationInfo);
 
-  if (reservationInfoPtr == NULL) {
+  if (reservationInfoPtr == nullptr) {
     return false;
   }
 
-  int num = reservationInfoList->erase(&findReservationInfo);
-  bool status = num == 1;
+  auto updated_list = current_list.erase(findReservationInfo);
+  bool status = current_list != updated_list;  // removed the element
 
   //[wer210] get rid of restart()
   if (status == false) {
@@ -84,7 +80,9 @@ bool customer_t::removeReservationInfo(WSTM::WAtomic& at,
  */
 long customer_t::getBill(WSTM::WAtomic& at) {
   long bill = 0;
-  for (auto i : *reservationInfoList) bill += i->price;
+  for (auto i : reservationInfoList.Get(at)) {
+    bill += i.price;
+  }
   return bill;
 }
 

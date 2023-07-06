@@ -24,14 +24,16 @@ struct reservation_info_t {
 
   reservation_info_t(reservation_type_t type, long id, long price);
 
+  bool operator==(const reservation_info_t& rhs);
+
   // NB: no need to provide destructor... default will do
 };
 
 struct reservation_t {
   long id;
-  long numUsed;
-  long numFree;
-  long numTotal;
+  WSTM::WVar<long> numUsed;
+  WSTM::WVar<long> numFree;
+  WSTM::WVar<long> numTotal;
   long price;
 
   reservation_t(long id, long price, long numTotal, bool* success);
@@ -62,15 +64,8 @@ struct reservation_t {
    * -- Failure if 'price' < 0
    * -- Returns TRUE on success, else FALSE
    */
-  bool updatePrice(long newPrice);
+  bool updatePrice(WSTM::WAtomic& at, long newPrice);
 
  private:
-  bool checkReservation();
+  bool checkReservation(WSTM::WAtomic& at);
 };
-
-/*
- * reservation_info_compare
- * -- Returns -1 if A < B, 0 if A = B, 1 if A > B
- */
-bool reservation_info_compare(reservation_info_t* aPtr,
-                              reservation_info_t* bPtr);

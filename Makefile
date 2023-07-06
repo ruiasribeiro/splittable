@@ -1,5 +1,8 @@
 # Based on https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 
+# NOTE: It does not trigger a rebuild when a source file is deleted, so `make
+# clean` needs to be executed in that case.
+
 CXX      = g++-12
 TARGETS  = $(basename $(notdir $(wildcard apps/*.cpp)))
 BINARIES = $(TARGETS:%=$(BUILD_DIR)/bin/%)
@@ -20,6 +23,7 @@ DEPS := $(OBJS:.o=.d)
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic #-DSPLITTABLE_DEBUG
 LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -lstdc++ -lm -lpthread -lboost_thread -lwstm 
 
+.PHONY: all
 all: $(BINARIES)
 
 # Build the executables.

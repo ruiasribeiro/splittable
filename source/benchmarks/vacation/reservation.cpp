@@ -18,7 +18,7 @@
  * -- Returns NULL on failure
  * =============================================================================
  */
-__attribute__((transaction_safe))
+
 reservation_info_t::reservation_info_t(reservation_type_t _type, long _id,
                                        long _price) {
   type = _type;
@@ -26,37 +26,31 @@ reservation_info_t::reservation_info_t(reservation_type_t _type, long _id,
   price = _price;
 }
 
-/* =============================================================================
- * reservation_info_compare
- * -- Returns -1 if A < B, 0 if A = B, 1 if A > B
- * =============================================================================
- */
-__attribute__((transaction_safe)) bool reservation_info_compare(
-    reservation_info_t* left, reservation_info_t* right) {
-  if (left->type == right->type)
-    return left->id < right->id;
-  else
-    return left->type < right->type;
+bool reservation_info_t::operator==(const reservation_info_t& rhs) {
+  return this->type == rhs.type && this->id < rhs.id;
 }
 
 // static void
-__attribute__((transaction_safe)) bool reservation_t::checkReservation() {
-  if (numUsed < 0) {
+bool reservation_t::checkReservation(WSTM::WAtomic& at) {
+  auto num_used = numUsed.Get(at);
+  if (num_used < 0) {
     //_ITM_abortTransaction(2);
     return false;
   }
 
-  if (numFree < 0) {
+  auto num_free = numFree.Get(at);
+  if (num_free < 0) {
     //_ITM_abortTransaction(2);
     return false;
   }
 
-  if (numTotal < 0) {
+  auto num_total = numTotal.Get(at);
+  if (num_total < 0) {
     //_ITM_abortTransaction(2);
     return false;
   }
 
-  if ((numUsed + numFree) != numTotal) {
+  if ((num_used + num_free) != num_total) {
     //_ITM_abortTransaction(2);
     return false;
   }
@@ -74,15 +68,16 @@ __attribute__((transaction_safe)) bool reservation_t::checkReservation() {
  * -- Returns NULL on failure
  * =============================================================================
  */
-__attribute__((transaction_safe))
+
 reservation_t::reservation_t(long _id, long _numTotal, long _price,
-                             bool* success) {
-  id = _id;
-  numUsed = 0;
-  numFree = _numTotal;
-  numTotal = _numTotal;
-  price = _price;
-  *success = checkReservation();
+                             bool* success)
+    : id(_id),
+      numUsed(0),
+      numFree(_numTotal),
+      numTotal(_numTotal),
+      price(_price) {
+  *success = WSTM::Atomically(
+      [this](WSTM::WAtomic& at) -> bool { return checkReservation(at); });
 }
 
 /* =============================================================================
@@ -91,14 +86,20 @@ reservation_t::reservation_t(long _id, long _numTotal, long _price,
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-__attribute__((transaction_safe)) bool reservation_t::addToTotal(
-    long num, bool* success) {
-  if (numFree + num < 0) return false;
+bool reservation_t::addToTotal(WSTM::WAtomic& at, long num, bool* success) {
+  auto num_free = numFree.Get(at);
+  if (num_free + num < 0) {
+    return false;
+  }
 
-  numFree += num;
-  numTotal += num;
+  num_free += num;
+  numFree.Set(num_free);
 
-  *success = checkReservation();
+  auto num_total = numTotal.Get(at);
+  num_total += num;
+  numTotal.Set(num_total, at);
+
+  *success = checkReservation(at);
   return true;
 }
 
@@ -107,13 +108,21 @@ __attribute__((transaction_safe)) bool reservation_t::addToTotal(
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-__attribute__((transaction_safe)) bool reservation_t::make() {
-  if (numFree < 1) return false;
+bool reservation_t::make(WSTM::WAtomic& at) {
+  auto num_free = numFree.Get(at);
+  if (num_free < 1) {
+    return false;
+  }
 
-  numUsed += 1;
-  numFree -= 1;
+  auto num_used = numUsed.Get(at);
+  num_used += 1;
+  numUsed.Set(num_used, at);
 
-  checkReservation();
+  num_free -= 1;
+  numFree.Set(num_free, at);
+
+  // TODO: the original code does not do anything with this? to check later
+  checkReservation(at);
   return true;
 }
 
@@ -122,14 +131,21 @@ __attribute__((transaction_safe)) bool reservation_t::make() {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-__attribute__((transaction_safe)) bool reservation_t::cancel() {
-  if (numUsed < 1) return false;
+bool reservation_t::cancel(WSTM::WAtomic& at) {
+  auto num_used = numUsed.Get(at);
+  if (num_used < 1) {
+    return false;
+  }
 
-  numUsed -= 1;
-  numFree += 1;
+  num_used -= 1;
+  numUsed.Set(num_used, at);
+
+  auto num_free = numFree.Get(at);
+  num_free += 1;
+  numFree.Set(num_free, at);
 
   //[wer210] Note here, return false, instead of abort in checkReservation
-  return checkReservation();
+  return checkReservation(at);
 }
 
 /* =============================================================================
@@ -139,8 +155,7 @@ __attribute__((transaction_safe)) bool reservation_t::cancel() {
  * =============================================================================
  */
 //[wer210] returns were not used before, so use it to indicate aborts
-__attribute__((transaction_safe)) bool reservation_t::updatePrice(
-    long newPrice) {
+bool reservation_t::updatePrice(WSTM::WAtomic& at, long newPrice) {
   if (newPrice < 0) {
     // return FALSE;
     return true;
@@ -148,7 +163,7 @@ __attribute__((transaction_safe)) bool reservation_t::updatePrice(
 
   price = newPrice;
 
-  return checkReservation();
+  return checkReservation(at);
 }
 
 /* =============================================================================
@@ -159,6 +174,8 @@ __attribute__((transaction_safe)) bool reservation_t::updatePrice(
 
 #include <cassert>
 #include <cstdio>
+
+#include "reservation.h"
 
 /* =============================================================================
  * reservation_compare

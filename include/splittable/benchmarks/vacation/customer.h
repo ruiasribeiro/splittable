@@ -10,7 +10,7 @@
 
 #include <cassert>
 #include <cstdlib>
-#include <set>
+#include <memory>
 
 #include "immer/set.hpp"
 #include "reservation.h"
@@ -18,7 +18,7 @@
 
 struct customer_t {
   long id;
-  WSTM::WVar<immer::set<reservation_info_t*>> reservationInfoList;
+  WSTM::WVar<immer::set<reservation_info_t>> reservationInfoList;
 
   customer_t(long id);
   ~customer_t();
