@@ -8,18 +8,18 @@
 
 #pragma once
 
-#include <map>
+#include <memory>
 
 #include "customer.h"
-#include "immer/table.hpp"
+#include "immer/map.hpp"
 #include "reservation.h"
 #include "wstm/stm.h"
 
 struct manager_t {
-  WSTM::WVar<immer::table<reservation_t>> carTable;
-  WSTM::WVar<immer::table<reservation_t>> roomTable;
-  WSTM::WVar<immer::table<reservation_t>> flightTable;
-  WSTM::WVar<immer::table<customer_t>> customerTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> carTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> roomTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> flightTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<customer_t>>> customerTable;
 
   manager_t();
   ~manager_t();
