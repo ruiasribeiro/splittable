@@ -137,7 +137,7 @@ void client_run(void* argPtr) {
                 throw cancel_transaction();
               }
             });
-          } catch (cancel_transaction ct) {
+          } catch (cancel_transaction const&) {
             done = false;
           }
         }
@@ -160,7 +160,7 @@ void client_run(void* argPtr) {
                 throw cancel_transaction();
               }
             });
-          } catch (cancel_transaction ct) {
+          } catch (cancel_transaction const&) {
             done = false;
           }
         }
@@ -224,7 +224,7 @@ void client_run(void* argPtr) {
                 throw cancel_transaction();
               }
             });
-          } catch (cancel_transaction ct) {
+          } catch (cancel_transaction const&) {
             done = false;
           }
         }

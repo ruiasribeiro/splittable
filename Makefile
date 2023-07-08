@@ -20,8 +20,8 @@ SRCS := $(shell find $(SRC_DIRS) -name *.cpp)
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic #-DSPLITTABLE_DEBUG
-LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -lstdc++ -lm -lpthread -lboost_thread -lwstm 
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic -g #-DSPLITTABLE_DEBUG
+LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -Wl,--end-group
 
 .PHONY: all
 all: $(BINARIES)

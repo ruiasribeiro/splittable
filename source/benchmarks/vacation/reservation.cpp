@@ -26,6 +26,12 @@ reservation_info_t::reservation_info_t(reservation_type_t _type, long _id,
   price = _price;
 }
 
+size_t hash_value(reservation_info_t const& res)
+{
+    using boost::hash_value;
+    return hash_value(std::make_pair(res.id, res.type));
+}
+
 // static void
 bool reservation_t::checkReservation(WSTM::WAtomic& at) {
   auto num_used = numUsed.Get(at);

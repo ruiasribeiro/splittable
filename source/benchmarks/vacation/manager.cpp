@@ -71,7 +71,7 @@ bool addReservation(
   auto reservation = table.find(id);
 
   bool success = true;
-  if (reservation != nullptr) {
+  if (reservation == nullptr) {
     /* Create new reservation */
     if (num < 1 || price < 0) {
       // return FALSE;
