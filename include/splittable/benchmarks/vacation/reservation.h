@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <boost/functional/hash.hpp>
+
 #include "wstm/stm.h"
 
 enum reservation_type_t {
@@ -23,11 +25,28 @@ struct reservation_info_t {
   long price; /* holds price at time reservation was made */
 
   reservation_info_t(reservation_type_t type, long id, long price);
+  // reservation_info_t(const reservation_info_t&);
 
-  bool operator==(const reservation_info_t& rhs);
+  // bool operator==(reservation_info_t const& rhs);
 
   // NB: no need to provide destructor... default will do
 };
+
+// Based on https://stackoverflow.com/a/52402866
+size_t hash_value(reservation_info_t const&);
+
+namespace std {
+template <>
+struct hash<::reservation_info_t> : boost::hash<::reservation_info_t> {};
+
+template <>
+struct equal_to<::reservation_info_t> {
+  constexpr bool operator()(const reservation_info_t& lhs,
+                            const reservation_info_t& rhs) const {
+    return lhs.type == rhs.type && lhs.id < rhs.id;
+  }
+};
+}  // namespace std
 
 struct reservation_t {
   long id;

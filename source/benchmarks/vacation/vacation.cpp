@@ -13,6 +13,7 @@
 #include "splittable/benchmarks/vacation/manager.h"
 #include "splittable/benchmarks/vacation/thread.h"
 #include "splittable/benchmarks/vacation/timer.h"
+#include "wstm/stm.h"
 
 enum param_types {
   PARAM_CLIENTS = (unsigned char)'t',
@@ -119,21 +120,26 @@ static void parseArgs(long argc, char* const argv[]) {
  * =============================================================================
  */
 static bool addCustomer(manager_t* managerPtr, long id, long, long) {
-  return managerPtr->addCustomer(id);
+  return WSTM::Atomically([=](WSTM::WAtomic& at) -> bool {
+    return managerPtr->addCustomer(at, id);
+  });
 }
 
 /* Three quick-and-dirty functions so that we don't need method pointers in the
  * following code */
 bool manager_addCar(manager_t* m, long a, long b, long c) {
-  return m->addCar(a, b, c);
+  return WSTM::Atomically(
+      [=](WSTM::WAtomic& at) -> bool { return m->addCar(at, a, b, c); });
 }
 
 bool manager_addFlight(manager_t* m, long a, long b, long c) {
-  return m->addFlight(a, b, c);
+  return WSTM::Atomically(
+      [=](WSTM::WAtomic& at) -> bool { return m->addFlight(at, a, b, c); });
 }
 
 bool manager_addRoom(manager_t* m, long a, long b, long c) {
-  return m->addRoom(a, b, c);
+  return WSTM::Atomically(
+      [=](WSTM::WAtomic& at) -> bool { return m->addRoom(at, a, b, c); });
 }
 
 /* =============================================================================
@@ -248,11 +254,11 @@ static void checkTables(manager_t* managerPtr) {
   long i;
   long numRelation = (long)global_params[PARAM_RELATIONS];
 
-  std::map<long, customer_t*>* custs = managerPtr->customerTable;
-  std::map<long, reservation_t*>* tbls[] = {
-      managerPtr->carTable,
-      managerPtr->flightTable,
-      managerPtr->roomTable,
+  auto custs = managerPtr->customerTable.GetReadOnly();
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>>* tbls[] = {
+      &managerPtr->carTable,
+      &managerPtr->flightTable,
+      &managerPtr->roomTable,
   };
 
   long numTable = sizeof(tbls) / sizeof(tbls[0]);
@@ -269,35 +275,37 @@ static void checkTables(manager_t* managerPtr) {
       (long)((double)percentQuery / 100.0 * (double)numRelation + 0.5);
   long maxCustomerId = queryRange + 1;
   for (i = 1; i <= maxCustomerId; i++) {
-    auto f = custs->find(i);
-    if (f->first == i) {
-      auto r = custs->erase(i);
-      if (r != 0) {
-        auto c = custs->find(i);
-        assert(c == custs->end());
-      } else {
-        assert(r == 0);
+    auto f = custs.find(i);
+    if (f != nullptr) {
+      auto updated_custs = custs.erase(i);
+
+      if (updated_custs != custs) {
+        auto c = custs.find(i);
+        assert(c == nullptr);
       }
-    } else {
-      assert(f == custs->end());
+
+      custs = updated_custs;
     }
   }
 
   /* Check reservation tables for consistency and unique ids */
   for (t = 0; t < numTable; t++) {
     for (i = 1; i <= numRelation; i++) {
-      auto f = tbls[t]->find(i);
-      if (f->first == i) {
+      auto f = tbls[t]->GetReadOnly().find(i);
+      if (f != nullptr) {
         assert(manager_add[t](managerPtr, i, 0, 0)); /* validate entry */
-        auto e = tbls[t]->erase(i);
-        if (e == 1) {
-          auto k = tbls[t]->erase(i);
-          assert(k == 0);
-        } else {
-          assert(e == 0);
-        }
-      } else {
-        assert(f == tbls[t]->end());
+
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          auto table = tbls[t]->Get(at);
+          auto updated_table = table.erase(i);
+          if (updated_table != table) {
+            auto second_updated_table = updated_table.erase(i);
+            assert(second_updated_table == updated_table);
+            tbls[t]->Set(second_updated_table, at);
+          } else {
+            tbls[t]->Set(updated_table, at);
+          }
+        });
       }
     }
   }

@@ -163,8 +163,8 @@ void client_run(void* argPtr) {
           } catch (cancel_transaction ct) {
             done = false;
           }
-          break;
         }
+        break;
       }
 
       case ACTION_UPDATE_TABLES: {
@@ -194,7 +194,8 @@ void client_run(void* argPtr) {
                       done = done && managerPtr->addCar(at, id, 100, newPrice);
                       break;
                     case RESERVATION_FLIGHT:
-                      done = done && managerPtr->addFlight(at, id, 100, newPrice);
+                      done =
+                          done && managerPtr->addFlight(at, id, 100, newPrice);
                       break;
                     case RESERVATION_ROOM:
                       done = done && managerPtr->addRoom(at, id, 100, newPrice);

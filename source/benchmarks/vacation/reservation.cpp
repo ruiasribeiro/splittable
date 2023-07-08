@@ -26,10 +26,6 @@ reservation_info_t::reservation_info_t(reservation_type_t _type, long _id,
   price = _price;
 }
 
-bool reservation_info_t::operator==(const reservation_info_t& rhs) {
-  return this->type == rhs.type && this->id < rhs.id;
-}
-
 // static void
 bool reservation_t::checkReservation(WSTM::WAtomic& at) {
   auto num_used = numUsed.Get(at);
