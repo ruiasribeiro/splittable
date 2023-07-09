@@ -26,10 +26,9 @@ reservation_info_t::reservation_info_t(reservation_type_t _type, long _id,
   price = _price;
 }
 
-size_t hash_value(reservation_info_t const& res)
-{
-    using boost::hash_value;
-    return hash_value(std::make_pair(res.id, res.type));
+size_t hash_value(reservation_info_t const& res) {
+  using boost::hash_value;
+  return hash_value(std::make_pair(res.id, res.type));
 }
 
 // static void
@@ -57,7 +56,8 @@ bool reservation_t::checkReservation(WSTM::WAtomic& at) {
     return false;
   }
 
-  if (price < 0) {
+  auto price_val = price.Get(at);
+  if (price_val < 0) {
     //_ITM_abortTransaction(2);
     return false;
   }
@@ -163,8 +163,8 @@ bool reservation_t::updatePrice(WSTM::WAtomic& at, long newPrice) {
     return true;
   }
 
-  price = newPrice;
-
+  price.Set(newPrice, at);
+  
   return checkReservation(at);
 }
 

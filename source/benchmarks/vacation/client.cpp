@@ -133,7 +133,7 @@ void client_run(void* argPtr) {
               }
 
               if (!done) {
-                assert(0);
+                // assert(0);
                 throw cancel_transaction();
               }
             });
@@ -156,7 +156,7 @@ void client_run(void* argPtr) {
                 done = done && managerPtr->deleteCustomer(at, customerId);
               }
               if (!done) {
-                assert(0);
+                // assert(0);
                 throw cancel_transaction();
               }
             });
@@ -220,7 +220,7 @@ void client_run(void* argPtr) {
                 }
               }
               if (!done) {
-                assert(0);
+                // assert(0);
                 throw cancel_transaction();
               }
             });

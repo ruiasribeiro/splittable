@@ -32,8 +32,10 @@ bool cancel(WSTM::WAtomic& at,
             immer::map<long, std::shared_ptr<customer_t>> custs,
             long customerId, long id, reservation_type_t type);
 
-// bool addReservation(std::map<long, reservation_t*>* tbl, long id, long num,
-//                     long price);
+bool addReservation(
+    WSTM::WAtomic& at,
+    WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>>& tbl, long id,
+    long num, long price);
 
 /**
  * Constructor for manager objects
@@ -319,7 +321,7 @@ long queryPrice(WSTM::WAtomic& at,
   long price = -1;
   auto res = tbl.find(id);
   if (res != nullptr) {
-    price = res->get()->price;
+    price = res->get()->price.Get(at);
   }
   return price;
 }
@@ -437,7 +439,8 @@ bool reserve(WSTM::WAtomic& at,
     return true;
   }
 
-  if (!customerPtr->addReservationInfo(at, type, id, reservationPtr->price)) {
+  if (!customerPtr->addReservationInfo(at, type, id,
+                                       reservationPtr->price.Get(at))) {
     /* Undo previous successful reservation */
     bool status = reservationPtr->cancel(at);
     if (status == false) {

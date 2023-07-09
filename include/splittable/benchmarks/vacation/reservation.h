@@ -43,7 +43,7 @@ template <>
 struct equal_to<::reservation_info_t> {
   constexpr bool operator()(const reservation_info_t& lhs,
                             const reservation_info_t& rhs) const {
-    return lhs.type == rhs.type && lhs.id < rhs.id;
+    return lhs.type == rhs.type && lhs.id == rhs.id;
   }
 };
 }  // namespace std
@@ -53,7 +53,7 @@ struct reservation_t {
   WSTM::WVar<long> numUsed;
   WSTM::WVar<long> numFree;
   WSTM::WVar<long> numTotal;
-  long price;
+  WSTM::WVar<long> price;
 
   reservation_t(long id, long price, long numTotal, bool* success);
 

@@ -68,8 +68,6 @@ bool customer_t::removeReservationInfo(WSTM::WAtomic& at,
     return false;
   }
 
-  delete reservationInfoPtr;
-
   return true;
 }
 
