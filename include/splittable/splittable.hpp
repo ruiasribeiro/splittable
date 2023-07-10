@@ -7,9 +7,24 @@
 
 namespace splittable {
 
-enum class error { insufficient_value };
+enum class error { insufficient_value, other };
 
-struct exception : public std::exception {};
+struct exception : public std::exception {
+  error err;
+
+  exception() : err(error::other) {}
+  exception(error err) : err(err) {}
+
+  char* what() {
+    switch (err) {
+      case error::insufficient_value:
+        return "could not perform the subtraction";
+      case error::other:
+      default:
+        return "unknown error";
+    }
+  }
+};
 
 class splittable {
  public:

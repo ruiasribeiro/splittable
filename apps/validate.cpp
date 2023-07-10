@@ -66,7 +66,7 @@ uint run_single(size_t workers) {
 }
 
 uint run_mrv_flex_vector(size_t workers) {
-  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
+  auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -114,7 +114,7 @@ uint run_mrv_flex_vector(size_t workers) {
 
 uint run_pr_array(size_t workers) {
   splittable::pr::pr_array::set_num_threads(workers);
-  auto value = splittable::pr::pr_array::new_pr();
+  auto value = splittable::pr::pr_array::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -182,10 +182,9 @@ int main(int argc, char const* argv[]) {
   } else if (test == "pr-array") {
     result = run_pr_array(workers);
   } else {
-    std::cerr
-        << "could not find a test with name \"" << test
-        << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\""
-        << std::endl;
+    std::cerr << "could not find a test with name \"" << test
+              << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\""
+              << std::endl;
     return 1;
   }
 

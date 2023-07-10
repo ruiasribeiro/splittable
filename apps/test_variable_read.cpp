@@ -101,7 +101,7 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
 result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
                             seconds duration) {
   auto total_reads = std::atomic_uint(0);
-  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
+  auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -161,7 +161,7 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
 result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
   splittable::pr::pr_array::set_num_threads(workers);
   auto total_reads = std::atomic_uint(0);
-  auto value = splittable::pr::pr_array::new_pr();
+  auto value = splittable::pr::pr_array::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);

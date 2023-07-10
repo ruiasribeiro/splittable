@@ -8,19 +8,19 @@ thread_local uint pr_array::thread_id;
 // needs to be set with set_num_threads()
 uint pr_array::num_threads;
 
-pr_array::pr_array() {
+pr_array::pr_array(uint value) {
   this->id = id_counter.fetch_add(1, std::memory_order_relaxed);
-  this->single_value = WSTM::WVar<uint>(0);
+  this->single_value = WSTM::WVar<uint>(value);
   this->is_splitted = WSTM::WVar<bool>(false);
 }
 
-auto pr_array::new_pr() -> std::shared_ptr<pr> {
-  auto obj = std::make_shared<pr_array>();
+auto pr_array::new_instance(uint value) -> std::shared_ptr<pr_array> {
+  auto obj = std::make_shared<pr_array>(value);
   manager::get_instance().register_pr(obj);
   return obj;
 }
 
-auto pr_array::delete_pr(std::shared_ptr<pr> obj) -> void {
+auto pr_array::delete_instance(std::shared_ptr<pr_array> obj) -> void {
   manager::get_instance().deregister_pr(obj);
 }
 

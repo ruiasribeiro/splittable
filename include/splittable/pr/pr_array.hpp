@@ -44,10 +44,10 @@ class pr_array : public pr {
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later
-  pr_array();
+  pr_array(uint value);
 
-  auto static new_pr() -> std::shared_ptr<pr>;
-  auto static delete_pr(std::shared_ptr<pr>) -> void;
+  auto static new_instance(uint value) -> std::shared_ptr<pr_array>;
+  auto static delete_instance(std::shared_ptr<pr_array>) -> void;
 
   auto get_id() -> uint;
 

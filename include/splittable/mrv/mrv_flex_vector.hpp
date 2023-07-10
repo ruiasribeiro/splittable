@@ -23,15 +23,16 @@ class mrv_flex_vector : public mrv {
 
   uint id;
 
-  using chunks_type = WSTM::WVar<immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>>;
+  using chunks_type =
+      WSTM::WVar<immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>>;
   chunks_type chunks;
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later
-  mrv_flex_vector(uint size);
+  mrv_flex_vector(uint value);
 
-  auto static new_mrv(uint size) -> std::shared_ptr<mrv>;
-  auto static delete_mrv(std::shared_ptr<mrv>) -> void;
+  auto static new_instance(uint value) -> std::shared_ptr<mrv_flex_vector>;
+  auto static delete_instance(std::shared_ptr<mrv_flex_vector>) -> void;
 
   auto get_id() -> uint;
 

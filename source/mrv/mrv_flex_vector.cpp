@@ -2,23 +2,23 @@
 
 namespace splittable::mrv {
 
-mrv_flex_vector::mrv_flex_vector(uint size) {
+mrv_flex_vector::mrv_flex_vector(uint value) {
   this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
 
-  auto t = immer::flex_vector_transient<std::shared_ptr<WSTM::WVar<uint>>>{};
-  for (auto i = 0u; i < size; ++i) {
-    t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
-  }
-  this->chunks = chunks_type(t.persistent());
+  auto t = immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>{
+      std::make_shared<WSTM::WVar<uint>>(value)};
+  this->chunks = chunks_type(t);
 }
 
-auto mrv_flex_vector::new_mrv(uint size) -> std::shared_ptr<mrv> {
-  auto obj = std::make_shared<mrv_flex_vector>(size);
+auto mrv_flex_vector::new_instance(uint value)
+    -> std::shared_ptr<mrv_flex_vector> {
+  auto obj = std::make_shared<mrv_flex_vector>(value);
   manager::get_instance().register_mrv(obj);
   return obj;
 }
 
-auto mrv_flex_vector::delete_mrv(std::shared_ptr<mrv> obj) -> void {
+auto mrv_flex_vector::delete_instance(std::shared_ptr<mrv_flex_vector> obj)
+    -> void {
   manager::get_instance().deregister_mrv(obj);
 }
 
@@ -70,6 +70,7 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
   auto index = utils::random_index(0, chunks.size() - 1);
 
   auto current_value = chunks.at(index)->Get(at);
+  // assert(current_value <= (current_value + value));
   current_value += value;
   chunks.at(index)->Set(current_value, at);
 }
@@ -90,6 +91,7 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
     if (current_chunk > value) {
       chunks.at(index)->Set(current_chunk - value, at);
       success = true;
+      break;
     } else if (current_chunk != 0) {
       value -= current_chunk;
       chunks.at(index)->Set(0, at);
@@ -129,7 +131,7 @@ auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
       for (auto i = 0u; i < to_add; ++i) {
         t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
       }
-      this->chunks = chunks_type(t.persistent());
+      this->chunks.Set(t.persistent(), at);
 
       return new_size;
     });
@@ -161,7 +163,7 @@ auto mrv_flex_vector::remove_node() -> void {
       auto absorber = chunks.at(absorber_index);
       absorber->Set(absorber->Get(at) + last_chunk, at);
 
-      this->chunks = chunks_type(chunks.take(size - 1));
+      this->chunks.Set(chunks.take(size - 1), at);
     });
 
 #ifdef SPLITTABLE_DEBUG

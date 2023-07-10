@@ -73,7 +73,7 @@ long long bm_single(size_t workers, seconds duration, int time_padding) {
 
 long long bm_mrv_flex_vector(size_t workers, seconds duration,
                              int time_padding) {
-  auto value = splittable::mrv::mrv_flex_vector::new_mrv(1);
+  auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -112,7 +112,7 @@ long long bm_mrv_flex_vector(size_t workers, seconds duration,
 
 long long bm_pr_array(size_t workers, seconds duration, int time_padding) {
   splittable::pr::pr_array::set_num_threads(workers);
-  auto value = splittable::pr::pr_array::new_pr();
+  auto value = splittable::pr::pr_array::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
