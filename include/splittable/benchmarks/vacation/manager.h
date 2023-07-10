@@ -13,12 +13,13 @@
 #include "customer.h"
 #include "immer/map.hpp"
 #include "reservation.h"
+#include "utility.h"
 #include "wstm/stm.h"
 
 struct manager_t {
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> carTable;
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> roomTable;
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>> flightTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>> carTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>> roomTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>> flightTable;
   WSTM::WVar<immer::map<long, std::shared_ptr<customer_t>>> customerTable;
 
   manager_t();

@@ -73,6 +73,10 @@
 
 #include <exception>
 
+#include "splittable/mrv/mrv_flex_vector.hpp"
+#include "splittable/pr/pr_array.hpp"
+#include "splittable/single/single.hpp"
+
 #define MAX(a, b)            \
   ({                         \
     __typeof__(a) _a = (a);  \
@@ -95,5 +99,13 @@
   })
 
 #define ABS(a) (((a) < 0) ? -(a) : (a))
+
+#if defined(SPLITTABLE_USE_MRV_FLEX_VECTOR)
+using splittable_type = splittable::mrv::mrv_flex_vector;
+#elif defined(SPLITTABLE_USE_PR_ARRAY)
+using splittable_type = splittable::pr::pr_array;
+#elif defined(SPLITTABLE_USE_SINGLE)
+using splittable_type = splittable::single::single;
+#endif
 
 class cancel_transaction : public std::exception {};

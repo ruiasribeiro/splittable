@@ -15,27 +15,33 @@
  * =============================================================================
  */
 
-long queryNumFree(WSTM::WAtomic& at,
-                  immer::map<long, std::shared_ptr<reservation_t>> tbl,
-                  long id);
+long queryNumFree(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    long id);
 
-long queryPrice(WSTM::WAtomic& at,
-                immer::map<long, std::shared_ptr<reservation_t>> tbl, long id);
+long queryPrice(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    long id);
 
-bool reserve(WSTM::WAtomic& at,
-             immer::map<long, std::shared_ptr<reservation_t>> tbl,
-             immer::map<long, std::shared_ptr<customer_t>> custs,
-             long customerId, long id, reservation_type_t type);
+bool reserve(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
+    long id, reservation_type_t type);
 
-bool cancel(WSTM::WAtomic& at,
-            immer::map<long, std::shared_ptr<reservation_t>> tbl,
-            immer::map<long, std::shared_ptr<customer_t>> custs,
-            long customerId, long id, reservation_type_t type);
+bool cancel(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
+    long id, reservation_type_t type);
 
 bool addReservation(
     WSTM::WAtomic& at,
-    WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>>& tbl, long id,
-    long num, long price);
+    WSTM::WVar<
+        immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>& tbl,
+    long id, long num, long price);
 
 /**
  * Constructor for manager objects
@@ -67,8 +73,9 @@ manager_t::~manager_t() {}
 
 bool addReservation(
     WSTM::WAtomic& at,
-    WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>>& tbl, long id,
-    long num, long price) {
+    WSTM::WVar<
+        immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>& tbl,
+    long id, long num, long price) {
   auto table = tbl.Get(at);
   auto reservation = table.find(id);
 
@@ -80,8 +87,9 @@ bool addReservation(
       return true;
     }
 
-    table = table.insert(std::make_pair(
-        id, std::make_shared<reservation_t>(id, num, price, &success)));
+    table = table.insert(
+        std::make_pair(id, std::make_shared<reservation_t<splittable_type>>(
+                               id, num, price, &success)));
     tbl.Set(table, at);
   } else {
     /* Update existing reservation */
@@ -253,7 +261,8 @@ bool manager_t::addCustomer(WSTM::WAtomic& at, long customerId) {
 //         So I make it alway returning true, unless need to abort a
 //         transaction.
 bool manager_t::deleteCustomer(WSTM::WAtomic& at, long customerId) {
-  immer::map<long, std::shared_ptr<reservation_t>> tables[NUM_RESERVATION_TYPE];
+  immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>
+      tables[NUM_RESERVATION_TYPE];
   auto customer_table = customerTable.Get(at);
   auto res = customer_table.find(customerId);
   if (res == nullptr) {
@@ -299,13 +308,14 @@ bool manager_t::deleteCustomer(WSTM::WAtomic& at, long customerId) {
  * =============================================================================
  */
 
-long queryNumFree(WSTM::WAtomic& at,
-                  immer::map<long, std::shared_ptr<reservation_t>> tbl,
-                  long id) {
+long queryNumFree(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    long id) {
   long numFree = -1;
   auto res = tbl.find(id);
   if (res != nullptr) {
-    numFree = res->get()->numFree.Get(at);
+    numFree = res->get()->numFree->read(at);
   }
   return numFree;
 }
@@ -316,8 +326,10 @@ long queryNumFree(WSTM::WAtomic& at,
  * =============================================================================
  */
 
-long queryPrice(WSTM::WAtomic& at,
-                immer::map<long, std::shared_ptr<reservation_t>> tbl, long id) {
+long queryPrice(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    long id) {
   long price = -1;
   auto res = tbl.find(id);
   if (res != nullptr) {
@@ -418,10 +430,11 @@ long manager_t::queryCustomerBill(WSTM::WAtomic& at, long customerId) {
 // values
 // to indicate if should restart a transaction.
 
-bool reserve(WSTM::WAtomic& at,
-             immer::map<long, std::shared_ptr<reservation_t>> tbl,
-             immer::map<long, std::shared_ptr<customer_t>> custs,
-             long customerId, long id, reservation_type_t type) {
+bool reserve(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
+    long id, reservation_type_t type) {
   auto cust = custs.find(customerId);
   if (cust == nullptr) {
     return true;
@@ -432,7 +445,7 @@ bool reserve(WSTM::WAtomic& at,
   if (res == nullptr) {
     return true;
   }
-  reservation_t* reservationPtr = res->get();
+  reservation_t<splittable_type>* reservationPtr = res->get();
 
   if (!reservationPtr->make(at)) {
     // return FALSE;
@@ -495,10 +508,11 @@ bool manager_t::reserveFlight(WSTM::WAtomic& at, long customerId,
 //[wer210] was a "static" function, invoked by three functions below
 //         however, never called.
 
-bool cancel(WSTM::WAtomic& at,
-            immer::map<long, std::shared_ptr<reservation_t>> tbl,
-            immer::map<long, std::shared_ptr<customer_t>> custs,
-            long customerId, long id, reservation_type_t type) {
+bool cancel(
+    WSTM::WAtomic& at,
+    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
+    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
+    long id, reservation_type_t type) {
   auto cust = custs.find(customerId);
   if (cust == nullptr) {
     return false;
@@ -509,7 +523,7 @@ bool cancel(WSTM::WAtomic& at,
   if (res == nullptr) {
     return false;
   }
-  reservation_t* reservationPtr = res->get();
+  reservation_t<splittable_type>* reservationPtr = res->get();
 
   if (!reservationPtr->cancel(at)) {
     return false;

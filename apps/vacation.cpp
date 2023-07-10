@@ -13,6 +13,7 @@
 #include "splittable/benchmarks/vacation/manager.h"
 #include "splittable/benchmarks/vacation/thread.h"
 #include "splittable/benchmarks/vacation/timer.h"
+#include "splittable/benchmarks/vacation/utility.h"
 #include "wstm/stm.h"
 
 enum param_types {
@@ -255,11 +256,12 @@ static void checkTables(manager_t* managerPtr) {
   long numRelation = (long)global_params[PARAM_RELATIONS];
 
   auto custs = managerPtr->customerTable.GetReadOnly();
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t>>>* tbls[] = {
-      &managerPtr->carTable,
-      &managerPtr->flightTable,
-      &managerPtr->roomTable,
-  };
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>*
+      tbls[] = {
+          &managerPtr->carTable,
+          &managerPtr->flightTable,
+          &managerPtr->roomTable,
+      };
 
   long numTable = sizeof(tbls) / sizeof(tbls[0]);
   bool (*manager_add[])(manager_t*, long, long, long) = {
