@@ -76,7 +76,17 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
-  at.OnFail([this]() { this->add_aborts(1u); });
+  auto completed = false;
+
+  at.OnFail([this, &completed]() {
+    // if this function is called and `completed` is true, we know that the
+    // transaction failed due to no stock, so we do not need to increment the
+    // abort counter
+    if (completed) {
+      return;
+    }
+    this->add_aborts(1u);
+  });
   at.After([this]() { this->add_commits(1u); });
 
   auto chunks = this->chunks.Get(at);
@@ -103,6 +113,7 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
     }
   }
 
+  completed = true;
   if (!success) {
     throw exception();
   }
