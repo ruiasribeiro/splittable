@@ -10,7 +10,7 @@ for type in ${type_list[@]}; do
     for workers in ${worker_list[@]}; do
         for padding in ${padding_list[@]}; do
             for _ in $(seq $runs); do
-                ./a.out $type $workers $seconds $padding
+                ./build/bin/test $type $workers $seconds $padding
             done
         done
     done

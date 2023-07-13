@@ -10,7 +10,7 @@ for type in ${type_list[@]}; do
     for workers in ${worker_list[@]}; do
         for read_per in ${read_per_list[@]}; do
             for _ in $(seq $runs); do
-            ./a.out $type $workers $read_per $seconds
+                ./build/bin/test_variable_read $type $workers $read_per $seconds
             done
         done
     done
