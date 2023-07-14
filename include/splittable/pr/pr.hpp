@@ -7,10 +7,10 @@
 namespace splittable::pr {
 
 struct status {
-  uint aborts;
-  uint aborts_for_no_stock;
-  uint commits;
-  uint waiting;
+  uint64_t aborts;
+  uint64_t aborts_for_no_stock;
+  uint64_t commits;
+  uint64_t waiting;
 };
 
 enum split_operation { split_operation_addsub };
@@ -33,7 +33,7 @@ class pr : public splittable {
   auto static set_num_threads(uint num) -> void;
 
   auto virtual try_transition(double abort_rate, uint waiting,
-                               uint aborts_for_no_stock) -> void = 0;
+                              uint aborts_for_no_stock) -> void = 0;
   auto virtual split(WSTM::WAtomic& at, split_operation op) -> void = 0;
   auto virtual reconcile(WSTM::WAtomic& at) -> void = 0;
 };

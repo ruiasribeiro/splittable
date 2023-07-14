@@ -4,12 +4,13 @@
 #include "wstm/stm.h"
 
 namespace splittable::single {
+
 class single : public splittable {
  private:
   WSTM::WVar<uint> value;
 
  public:
-   // TODO: this is not private because of make_shared, need to revise that later
+  // TODO: this is not private because of make_shared, need to revise that later
   single(uint value);
 
   auto static new_instance(uint value) -> std::shared_ptr<single>;
@@ -20,4 +21,5 @@ class single : public splittable {
   auto add(WSTM::WAtomic& at, uint value) -> void;
   auto sub(WSTM::WAtomic& at, uint value) -> void;
 };
+
 }  // namespace splittable::single

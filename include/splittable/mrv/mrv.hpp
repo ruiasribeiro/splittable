@@ -7,8 +7,8 @@
 namespace splittable::mrv {
 
 struct status {
-  uint aborts;
-  uint commits;
+  uint64_t aborts;
+  uint64_t commits;
 };
 
 const double MIN_ABORT_RATE = 0.01;

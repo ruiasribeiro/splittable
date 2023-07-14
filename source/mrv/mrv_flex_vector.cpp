@@ -2,7 +2,7 @@
 
 namespace splittable::mrv {
 
-mrv_flex_vector::mrv_flex_vector(uint value) {
+mrv_flex_vector::mrv_flex_vector(uint value) : status_counters(0) {
   this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
 
   auto t = immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>{
@@ -43,6 +43,8 @@ auto mrv_flex_vector::fetch_and_reset_status() -> status {
 }
 
 auto mrv_flex_vector::read(WSTM::WAtomic& at) -> uint {
+  setup_transaction_tracking(at);
+
   // a read does not count for the purposes of the abort rate, so no lambdas are
   // needed here
 
@@ -63,6 +65,8 @@ auto mrv_flex_vector::read(WSTM::WAtomic& at) -> uint {
 }
 
 auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
+  setup_transaction_tracking(at);
+
   at.OnFail([this]() { this->add_aborts(1u); });
   at.After([this]() { this->add_commits(1u); });
 
@@ -76,6 +80,8 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
+  setup_transaction_tracking(at);
+
   auto completed = false;
 
   at.OnFail([this, &completed]() {

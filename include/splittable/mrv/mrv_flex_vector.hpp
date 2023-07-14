@@ -39,6 +39,7 @@ class mrv_flex_vector : public mrv {
   auto add_aborts(uint count) -> void;
   auto add_commits(uint count) -> void;
   auto fetch_and_reset_status() -> status;
+  auto fetch_total_status() -> status;
 
   auto read(WSTM::WAtomic& at) -> uint;
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;

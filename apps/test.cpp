@@ -7,6 +7,7 @@
 
 #include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
+#include "splittable/single/single.hpp"
 #include "wstm/stm.h"
 
 #define CACHE_LINE_SIZE 64
@@ -21,6 +22,11 @@ using std::chrono::system_clock;
 
 using namespace std::chrono_literals;
 
+struct result_t {
+  uint operations;
+  double abort_rate;
+};
+
 double waste_time(size_t iterations) {
   auto value = 1;
 
@@ -31,8 +37,8 @@ double waste_time(size_t iterations) {
   return value;
 }
 
-long long bm_single(size_t workers, seconds duration, int time_padding) {
-  auto value = WSTM::WVar<uint>(0);
+result_t bm_single(size_t workers, seconds duration, int time_padding) {
+  auto value = splittable::single::single::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -48,10 +54,7 @@ long long bm_single(size_t workers, seconds duration, int time_padding) {
       while ((now() - start) < duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(time_padding);
-
-          auto current_value = value.Get(at);
-          value.Set(current_value + 1, at);
-
+          value->add(at, 1);
           val = waste_time(time_padding);
         });
       }
@@ -66,12 +69,16 @@ long long bm_single(size_t workers, seconds duration, int time_padding) {
     threads[i].join();
   }
 
-  auto result = value.GetReadOnly();
+  auto operations =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  return result;
+  return {.operations = operations, .abort_rate = abort_rate};
 }
 
-long long bm_mrv_flex_vector(size_t workers, seconds duration,
+result_t bm_mrv_flex_vector(size_t workers, seconds duration,
                              int time_padding) {
   auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
@@ -104,13 +111,16 @@ long long bm_mrv_flex_vector(size_t workers, seconds duration,
     threads[i].join();
   }
 
-  auto result =
+  auto operations =
       WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  return result;
+  return {.operations = operations, .abort_rate = abort_rate};
 }
 
-long long bm_pr_array(size_t workers, seconds duration, int time_padding) {
+result_t bm_pr_array(size_t workers, seconds duration, int time_padding) {
   splittable::pr::pr_array::set_num_threads(workers);
   auto value = splittable::pr::pr_array::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
@@ -145,10 +155,13 @@ long long bm_pr_array(size_t workers, seconds duration, int time_padding) {
     threads[i].join();
   }
 
-  auto result =
+  auto operations =
       WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  return result;
+  return {.operations = operations, .abort_rate = abort_rate};
 }
 
 int main(int argc, char const* argv[]) {
@@ -199,23 +212,25 @@ int main(int argc, char const* argv[]) {
 
   std::string benchmark(argv[1]);
 
-  long long count;
+  result_t result;
   if (benchmark == "single") {
-    count = bm_single(workers, execution_time, padding);
+    result = bm_single(workers, execution_time, padding);
   } else if (benchmark == "mrv-flex-vector") {
-    count = bm_mrv_flex_vector(workers, execution_time, padding);
+    result = bm_mrv_flex_vector(workers, execution_time, padding);
   } else if (benchmark == "pr-array") {
-    count = bm_pr_array(workers, execution_time, padding);
+    result = bm_pr_array(workers, execution_time, padding);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
-              << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";
+              << "\"; try \"single\", \"mrv-flex-vector\", \"pr-array\"\n";
     return 1;
   }
 
   // CSV header: benchmark, workers, execution time, padding, # of commited
-  // operations
+  // operations, throughput (ops/s), abort rate
   std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << padding << "," << count << "\n";
+            << "," << padding << "," << result.operations << ","
+            << result.operations / execution_time.count() << ","
+            << result.abort_rate << "\n";
 
   // return 0;
   quick_exit(0);

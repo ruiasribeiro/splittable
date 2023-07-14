@@ -9,15 +9,22 @@ auto single::new_instance(uint value) -> std::shared_ptr<single> {
 
 auto single::delete_instance(std::shared_ptr<single>) -> void {}
 
-auto single::read(WSTM::WAtomic& at) -> uint { return this->value.Get(at); }
+auto single::read(WSTM::WAtomic& at) -> uint {
+  setup_transaction_tracking(at);
+  return this->value.Get(at);
+}
 
 auto single::add(WSTM::WAtomic& at, uint value) -> void {
+  setup_transaction_tracking(at);
+
   auto current = this->value.Get(at);
   current += value;
   this->value.Set(current, at);
 }
 
 auto single::sub(WSTM::WAtomic& at, uint value) -> void {
+  setup_transaction_tracking(at);
+
   auto current = this->value.Get(at);
 
   if (current < value) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <exception>
 #include <string>
 
@@ -26,8 +27,22 @@ struct exception : public std::exception {
   }
 };
 
+struct status {
+  uint64_t aborts;
+  uint64_t commits;
+};
+
 class splittable {
+ private:
+  static std::atomic_uint64_t total_aborts;
+  static std::atomic_uint64_t total_commits;
+
+ protected:
+  auto static setup_transaction_tracking(WSTM::WAtomic& at) -> void;
+
  public:
+  auto static get_global_stats() -> status;
+
   auto virtual read(WSTM::WAtomic& at) -> uint = 0;
   // auto virtual inconsistent_read(WSTM::WInconsistent& inc) -> uint = 0;
   auto virtual add(WSTM::WAtomic& at, uint value) -> void = 0;

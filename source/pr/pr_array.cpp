@@ -8,7 +8,7 @@ thread_local uint pr_array::thread_id;
 // needs to be set with set_num_threads()
 uint pr_array::num_threads;
 
-pr_array::pr_array(uint value) {
+pr_array::pr_array(uint value) : status_counters(0) {
   this->id = id_counter.fetch_add(1, std::memory_order_relaxed);
   this->single_value = WSTM::WVar<uint>(value);
   this->is_splitted = WSTM::WVar<bool>(false);
@@ -61,6 +61,8 @@ auto pr_array::fetch_and_reset_status() -> status {
 }
 
 auto pr_array::read(WSTM::WAtomic& at) -> uint {
+  setup_transaction_tracking(at);
+
   at.OnFail([this]() { this->add_aborts(1); });
   at.After([this]() { this->add_commits(1); });
 
@@ -73,6 +75,8 @@ auto pr_array::read(WSTM::WAtomic& at) -> uint {
 }
 
 auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
+  setup_transaction_tracking(at);
+
   at.OnFail([this]() { this->add_aborts(1); });
   at.After([this]() { this->add_commits(1); });
 
@@ -94,6 +98,8 @@ auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
 }
 
 auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
+  setup_transaction_tracking(at);
+
   at.OnFail([this]() { this->add_aborts(1); });
   at.After([this]() { this->add_commits(1); });
 

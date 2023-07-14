@@ -8,6 +8,7 @@
 
 #include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
+#include "splittable/single/single.hpp"
 #include "splittable/utils/random.hpp"
 #include "wstm/stm.h"
 
@@ -28,6 +29,7 @@ using namespace std::chrono_literals;
 struct result_t {
   uint writes;
   uint reads;
+  double abort_rate;
 };
 
 double waste_time(size_t iterations) {
@@ -42,7 +44,7 @@ double waste_time(size_t iterations) {
 
 result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
   auto total_reads = std::atomic_uint(0);
-  auto value = WSTM::WVar<uint>(0);
+  auto value = splittable::single::single::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
@@ -66,10 +68,9 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
           val = waste_time(TIME_PADDING);
 
           if (does_read) {
-            val2 = value.Get(at);
+            val2 = value->read(at);
           } else {
-            auto current_value = value.Get(at);
-            value.Set(current_value + 1, at);
+            value->add(at, 1);
           }
 
           val = waste_time(TIME_PADDING);
@@ -92,10 +93,14 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
     threads[i].join();
   }
 
-  result_t result = {.writes = value.GetReadOnly(),
-                     .reads = total_reads.load()};
+  auto writes =
+      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  return result;
+  return {
+      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
 }
 
 result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
@@ -152,10 +157,12 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
 
   auto writes =
       WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  result_t result = {.writes = writes, .reads = total_reads.load()};
-
-  return result;
+  return {
+      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
 }
 
 result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
@@ -214,10 +221,12 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
 
   auto writes =
       WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  result_t result = {.writes = writes, .reads = total_reads.load()};
-
-  return result;
+  return {
+      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
 }
 
 int main(int argc, char const* argv[]) {
@@ -269,23 +278,26 @@ int main(int argc, char const* argv[]) {
 
   std::string benchmark(argv[1]);
 
-  result_t count;
+  result_t result;
   if (benchmark == "single") {
-    count = bm_single(workers, read_percentage, execution_time);
+    result = bm_single(workers, read_percentage, execution_time);
   } else if (benchmark == "mrv-flex-vector") {
-    count = bm_mrv_flex_vector(workers, read_percentage, execution_time);
+    result = bm_mrv_flex_vector(workers, read_percentage, execution_time);
   } else if (benchmark == "pr-array") {
-    count = bm_pr_array(workers, read_percentage, execution_time);
+    result = bm_pr_array(workers, read_percentage, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
               << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";
     return 1;
   }
 
-  // CSV: benchmark, workers, execution time, read percentage, writes, reads
+  // CSV: benchmark, workers, execution time, read percentage, writes, reads,
+  // write throughput (ops/s), read throughput (ops/s), abort rate
   std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << read_percentage << "," << count.writes << ","
-            << count.reads << "\n";
+            << "," << read_percentage << "," << result.writes << ","
+            << result.reads << "," << result.writes / execution_time.count()
+            << "," << result.reads / execution_time.count() << ","
+            << result.abort_rate << "\n";
 
   // return 0;
   quick_exit(0);
