@@ -23,9 +23,9 @@ class mrv_flex_vector : public mrv {
 
   uint id;
 
-  using chunks_type =
-      WSTM::WVar<immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>>;
-  chunks_type chunks;
+  using chunks_t = immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>;
+  // this pointer is only accessed with atomic instructions
+  std::shared_ptr<chunks_t> chunks;
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later

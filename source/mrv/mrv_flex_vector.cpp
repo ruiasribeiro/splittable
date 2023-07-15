@@ -5,9 +5,8 @@ namespace splittable::mrv {
 mrv_flex_vector::mrv_flex_vector(uint value) : status_counters(0) {
   this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
 
-  auto t = immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>{
-      std::make_shared<WSTM::WVar<uint>>(value)};
-  this->chunks = chunks_type(t);
+  auto chunks = chunks_t{std::make_shared<WSTM::WVar<uint>>(value)};
+  this->chunks = std::make_shared<chunks_t>(chunks);
 }
 
 auto mrv_flex_vector::new_instance(uint value)
@@ -49,8 +48,7 @@ auto mrv_flex_vector::read(WSTM::WAtomic& at) -> uint {
   // needed here
 
   uint sum = 0;
-  auto chunks = this->chunks.Get(at);
-
+  auto chunks = *std::atomic_load(&this->chunks).get();
   {
     // this will improve performance since we are reading a lot of variables in
     // one go
@@ -70,7 +68,7 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
   at.OnFail([this]() { this->add_aborts(1u); });
   at.After([this]() { this->add_commits(1u); });
 
-  auto chunks = this->chunks.Get(at);
+  auto chunks = *std::atomic_load(&this->chunks).get();
   auto index = utils::random_index(0, chunks.size() - 1);
 
   auto current_value = chunks.at(index)->Get(at);
@@ -95,7 +93,7 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   });
   at.After([this]() { this->add_commits(1u); });
 
-  auto chunks = this->chunks.Get(at);
+  auto chunks = *std::atomic_load(&this->chunks).get();
   auto size = chunks.size();
   auto start = utils::random_index(0, size - 1);
   auto index = start;
@@ -126,82 +124,79 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
-  try {
-    auto new_size = WSTM::Atomically([&](WSTM::WAtomic& at) -> ulong {
-      auto chunks = this->chunks.Get(at);
-      auto size = chunks.size();
+  auto chunks = *std::atomic_load(&this->chunks).get();
+  auto size = chunks.size();
 
-      // TODO: this is not exactly like the original impl, revise later
-      if (size >= MAX_NODES) {
-        throw std::exception();
-      }
+  // TODO: this is not exactly like the original impl, revise later
+  if (size >= MAX_NODES) {
+    return;
+  }
 
-      auto to_add = std::min((size_t)std::lround(1 + size * abort_rate),
-                             MAX_NODES - size);
+  auto to_add =
+      std::min((size_t)std::lround(1 + size * abort_rate), MAX_NODES - size);
 
-      if (to_add < 1) {
-        throw std::exception();
-      }
+  if (to_add < 1) {
+    return;
+  }
 
-      auto new_size = size + to_add;
-      auto t = chunks.transient();
-      for (auto i = 0u; i < to_add; ++i) {
-        t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
-      }
-      this->chunks.Set(t.persistent(), at);
+  auto t = chunks.transient();
+  for (auto i = 0u; i < to_add; ++i) {
+    t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
+  }
 
-      return new_size;
-    });
+  std::atomic_store(&this->chunks, std::make_shared<chunks_t>(t.persistent()));
 
 #ifdef SPLITTABLE_DEBUG
-    std::cout << "increased id=" << id << " w/abort " << abort_rate
-              << " | new size: " << new_size << "\n";
+  auto new_size = size + to_add;
+  std::cout << "increased id=" << id << " w/abort " << abort_rate
+            << " | new size: " << new_size << "\n";
 #endif
-  } catch (...) {
-    // there is no problem if an exception is thrown, this will be tried again
-    // in the next adjustment phase
-  }
 }
 
 auto mrv_flex_vector::remove_node() -> void {
-  try {
-    WSTM::Atomically([&](WSTM::WAtomic& at) {
-      auto chunks = this->chunks.Get(at);
-      auto size = chunks.size();
+  auto chunks = *std::atomic_load(&this->chunks).get();
+  auto size = chunks.size();
 
-      // TODO: check if removing does not go below min nodes
-      if (size < 2) {
-        throw std::exception();
-      }
+  // TODO: check if removing does not go below min nodes
+  if (size < 2) {
+    return;
+  }
 
-      // move data to existing record
-      auto last_chunk = chunks.at(size - 1)->Get(at);
-      auto absorber_index = utils::random_index(0, size - 2);
-      auto absorber = chunks.at(absorber_index);
-      absorber->Set(absorber->Get(at) + last_chunk, at);
+  WSTM::Atomically(
+      [&](WSTM::WAtomic& at) {
+        auto last_chunk = chunks[size - 1];
+        auto last_chunk_value = last_chunk->Get(at);
 
-      this->chunks.Set(chunks.take(size - 1), at);
-    });
+        // this ensures that others threads reading/writing to the last_chunk
+        // will conflict
+        last_chunk->Set(0, at);
+
+        if (last_chunk_value > 0) {
+          auto absorber = chunks[utils::random_index(0, size - 2)];
+          absorber->Set(absorber->Get(at) + last_chunk_value, at);
+        }
+
+        std::atomic_store(&this->chunks,
+                          std::make_shared<chunks_t>(chunks.take(size - 1)));
+      },
+      // this makes the transaction irrevocable
+      WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
 
 #ifdef SPLITTABLE_DEBUG
-    std::cout << "decreased id=" << this->id << " by one\n";
+  std::cout << "decreased id=" << this->id << " by one\n";
 #endif
-  } catch (...) {
-    // there is no problem if an exception is thrown, this will be tried again
-    // in the next adjustment phase
-  }
 }
 
 auto mrv_flex_vector::balance() -> void {
+  auto chunks = *std::atomic_load(&this->chunks).get();
+  auto size = chunks.size();
+
+  if (size < 2) {
+    return;
+  }
+
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {
-      auto chunks = this->chunks.Get(at);
-      auto size = chunks.size();
-
-      if (size < 2) {
-        throw exception();
-      }
-
       auto min_i = 0u;
       auto min_v = UINT_MAX;
       auto max_i = 0u;
@@ -209,7 +204,7 @@ auto mrv_flex_vector::balance() -> void {
 
       uint read_value;
       for (auto i = 0u; i < size; ++i) {
-        read_value = chunks.at(i)->Get(at);
+        read_value = chunks[i]->Get(at);
 
         if (read_value > max_v) {
           max_v = read_value;
@@ -229,8 +224,8 @@ auto mrv_flex_vector::balance() -> void {
       auto new_value = (max_v + min_v) / 2;
       auto remainder = (max_v + min_v) % 2;
 
-      chunks.at(min_i)->Set(new_value + remainder, at);
-      chunks.at(max_i)->Set(new_value, at);
+      chunks[min_i]->Set(new_value + remainder, at);
+      chunks[max_i]->Set(new_value, at);
     });
   } catch (...) {
     // there is no problem if an exception is thrown, this will be tried again
