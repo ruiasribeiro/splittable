@@ -23,7 +23,7 @@ rcParams["figure.figsize"] = 5, 3.5
 df = pd.read_csv(args.csv_path)
 
 df = (
-    df.groupby(["benchmark", "workers"])
+    df.groupby(["benchmark", "padding"])
     .agg(
         {
             "commited operations": np.mean,
@@ -38,15 +38,14 @@ marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", 
 markers = [marker[i] for i in range(len(df["benchmark"].unique()))]
 
 plt.xscale("log")
-plt.ylim(-0.05, 1.05)
 
-ticks = df[df["benchmark"] == "single"]["workers"]
+ticks = df[df["benchmark"] == "single"]["padding"]
 plt.xticks(ticks, ticks)
 
 sns.lineplot(
     data=df,
-    x="workers",
-    y="abort rate",
+    x="padding",
+    y="throughput (ops/s)",
     hue="benchmark",
     style="benchmark",
     markers=markers,
@@ -57,4 +56,4 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
-plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-client-abort-rate.pdf"))
+plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-padding-throughput.pdf"))

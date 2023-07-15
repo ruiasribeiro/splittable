@@ -56,4 +56,4 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
-plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-throughput.pdf"))
+plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-client-throughput.pdf"))

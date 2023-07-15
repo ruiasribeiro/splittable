@@ -20,14 +20,16 @@ args = parser.parse_args()
 rcParams["figure.figsize"] = 5, 3.5
 # rcParams["font.family"] = "Helvetica"
 
-df = pd.read_csv(args.csv_path)
 
 df = (
-    df.groupby(["benchmark", "workers"])
+    pd.read_csv(args.csv_path)
+    .groupby(["benchmark", "read percentage"])
     .agg(
         {
-            "commited operations": np.mean,
-            "throughput (ops/s)": np.mean,
+            "writes": np.mean,
+            "reads": np.mean,
+            "write throughput (ops/s)": np.mean,
+            "read throughput (ops/s)": np.mean,
             "abort rate": np.mean,
         }
     )
@@ -37,15 +39,16 @@ df = (
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["benchmark"].unique()))]
 
-plt.xscale("log")
+# plt.xscale("log")
 plt.ylim(-0.05, 1.05)
 
-ticks = df[df["benchmark"] == "single"]["workers"]
+ticks = df[df["benchmark"] == "single"]["read percentage"]
 plt.xticks(ticks, ticks)
+plt.xticks(rotation=60)
 
 sns.lineplot(
     data=df,
-    x="workers",
+    x="read percentage",
     y="abort rate",
     hue="benchmark",
     style="benchmark",
@@ -57,4 +60,6 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
-plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-client-abort-rate.pdf"))
+plt.savefig(
+    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-abort-rate.pdf")
+)

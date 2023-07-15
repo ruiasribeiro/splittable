@@ -12,6 +12,7 @@ from matplotlib import rcParams
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
+parser.add_argument("throughput_type", choices=["write", "read"])
 parser.add_argument("csv_path")
 
 args = parser.parse_args()
@@ -20,33 +21,42 @@ args = parser.parse_args()
 rcParams["figure.figsize"] = 5, 3.5
 # rcParams["font.family"] = "Helvetica"
 
-df = pd.read_csv(args.csv_path)
 
 df = (
-    df.groupby(["benchmark", "workers"])
+    pd.read_csv(args.csv_path)
+    .groupby(["benchmark", "read percentage"])
     .agg(
         {
-            "commited operations": np.mean,
-            "throughput (ops/s)": np.mean,
+            "writes": np.mean,
+            "reads": np.mean,
+            "write throughput (ops/s)": np.mean,
+            "read throughput (ops/s)": np.mean,
             "abort rate": np.mean,
         }
     )
     .reset_index()
 )
 
+throughput_type = args.throughput_type
+
+if throughput_type == "write":
+    df = df[df["read percentage"] < 100]
+else:
+    df = df[df["read percentage"] > 0]
+
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["benchmark"].unique()))]
 
-plt.xscale("log")
-plt.ylim(-0.05, 1.05)
+# plt.xscale("log")
 
-ticks = df[df["benchmark"] == "single"]["workers"]
+ticks = df[df["benchmark"] == "single"]["read percentage"]
 plt.xticks(ticks, ticks)
+plt.xticks(rotation=60)
 
 sns.lineplot(
     data=df,
-    x="workers",
-    y="abort rate",
+    x="read percentage",
+    y=f"{throughput_type} throughput (ops/s)",
     hue="benchmark",
     style="benchmark",
     markers=markers,
@@ -57,4 +67,6 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
-plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-client-abort-rate.pdf"))
+plt.savefig(
+    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-{throughput_type}-throughput.pdf")
+)
