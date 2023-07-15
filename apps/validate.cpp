@@ -78,17 +78,7 @@ uint run_mrv_flex_vector(size_t workers) {
       double val;
       bar.wait();
 
-      for (auto j = 0ul; j < workload / 2; j++) {
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
-          value->add(at, 1);
-          val = waste_time(TIME_PADDING);
-        });
-      }
-
-      std::this_thread::sleep_for(std::chrono::milliseconds(5000 - (i * 100)));
-
-      for (auto j = 0ul; j < workload / 2; j++) {
+      for (auto j = 0ul; j < workload; j++) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(TIME_PADDING);
           value->add(at, 1);
