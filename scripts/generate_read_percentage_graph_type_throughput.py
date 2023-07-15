@@ -35,7 +35,12 @@ df = (
         }
     )
     .reset_index()
+    .rename(columns={"benchmark": "Type"})
 )
+
+df.loc[df["Type"] == "single", "Type"] = "Single"
+df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
+df.loc[df["Type"] == "pr-array", "Type"] = "PR"
 
 throughput_type = args.throughput_type
 
@@ -45,11 +50,11 @@ else:
     df = df[df["read percentage"] > 0]
 
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
-markers = [marker[i] for i in range(len(df["benchmark"].unique()))]
+markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 # plt.xscale("log")
 
-ticks = df[df["benchmark"] == "single"]["read percentage"]
+ticks = df[df["Type"] == "Single"]["read percentage"]
 plt.xticks(ticks, ticks)
 plt.xticks(rotation=60)
 
@@ -57,10 +62,13 @@ sns.lineplot(
     data=df,
     x="read percentage",
     y=f"{throughput_type} throughput (ops/s)",
-    hue="benchmark",
-    style="benchmark",
+    hue="Type",
+    style="Type",
     markers=markers,
 )
+
+plt.xlabel("Read percentage (%)")
+plt.ylabel(f"{throughput_type.capitalize()} throughput (ops/s)")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)

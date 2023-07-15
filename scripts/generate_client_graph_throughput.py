@@ -32,24 +32,32 @@ df = (
         }
     )
     .reset_index()
+    .rename(columns={"benchmark": "Type"})
 )
 
+df.loc[df["Type"] == "single", "Type"] = "Single"
+df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
+df.loc[df["Type"] == "pr-array", "Type"] = "PR"
+
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
-markers = [marker[i] for i in range(len(df["benchmark"].unique()))]
+markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
 
-ticks = df[df["benchmark"] == "single"]["workers"]
+ticks = df[df["Type"] == "Single"]["workers"]
 plt.xticks(ticks, ticks)
 
 sns.lineplot(
     data=df,
     x="workers",
     y="throughput (ops/s)",
-    hue="benchmark",
-    style="benchmark",
+    hue="Type",
+    style="Type",
     markers=markers,
 )
+
+plt.xlabel("Clients")
+plt.ylabel("Throughput (ops/s)")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
