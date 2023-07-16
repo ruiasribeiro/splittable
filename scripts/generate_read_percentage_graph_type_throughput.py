@@ -18,8 +18,9 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 5, 3.5
-# rcParams["font.family"] = "Helvetica"
+rcParams["figure.figsize"] = 3, 3
+rcParams["font.family"] = "Inter"
+rcParams["font.size"] = 14
 
 
 df = (
@@ -54,11 +55,15 @@ markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 # plt.xscale("log")
 
-ticks = df[df["Type"] == "Single"]["read percentage"]
+# ticks = df[df["Type"] == "Single"]["read percentage"]
+if throughput_type == "write":
+    ticks = [0, 25, 50, 75, 95]
+else:
+    ticks = [5, 25, 50, 75, 100]
 plt.xticks(ticks, ticks)
-plt.xticks(rotation=60)
+# plt.xticks(rotation=60)
 
-sns.lineplot(
+chart = sns.lineplot(
     data=df,
     x="read percentage",
     y=f"{throughput_type} throughput (ops/s)",
@@ -67,14 +72,25 @@ sns.lineplot(
     markers=markers,
 )
 
+chart.get_legend().set_title(None)
+
+ylabels = ["{:,.0f}".format(y) + "k" for y in chart.get_yticks() / 1000]
+chart.set_yticklabels(ylabels)
+
 plt.xlabel("Read percentage (%)")
 plt.ylabel(f"{throughput_type.capitalize()} throughput (ops/s)")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
-plt.tight_layout()  # avoids cropping the labels
+# plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-{throughput_type}-throughput.pdf")
+    os.path.join(
+        result_dir,
+        "graphs",
+        f"{file_name}-read-percentage-{throughput_type}-throughput.pdf",
+    ),
+    bbox_inches="tight",
+    pad_inches=0.0,
 )

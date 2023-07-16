@@ -17,8 +17,9 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 5, 3.5
-# rcParams["font.family"] = "Helvetica"
+rcParams["figure.figsize"] = 4.5, 3
+rcParams["font.family"] = "Inter"
+rcParams["font.size"] = 14
 
 df = pd.read_csv(args.csv_path)
 
@@ -47,7 +48,7 @@ plt.xscale("log")
 ticks = df[df["Type"] == "Single"]["padding"]
 plt.xticks(ticks, ticks)
 
-sns.lineplot(
+chart = sns.lineplot(
     data=df,
     x="padding",
     y="throughput (ops/s)",
@@ -55,6 +56,11 @@ sns.lineplot(
     style="Type",
     markers=markers,
 )
+
+chart.get_legend().set_title(None)
+
+ylabels = ["{:,.0f}".format(y) + "k" for y in chart.get_yticks() / 1000]
+chart.set_yticklabels(ylabels)
 
 plt.xlabel("Padding")
 plt.ylabel("Throughput (ops/s)")
@@ -64,4 +70,8 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
-plt.savefig(os.path.join(result_dir, "graphs", f"{file_name}-padding-throughput.pdf"))
+plt.savefig(
+    os.path.join(result_dir, "graphs", f"{file_name}-padding-throughput.pdf"),
+    bbox_inches="tight",
+    pad_inches=0.0,
+)

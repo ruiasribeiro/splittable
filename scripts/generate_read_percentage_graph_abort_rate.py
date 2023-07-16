@@ -17,8 +17,9 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 5, 3.5
-# rcParams["font.family"] = "Helvetica"
+rcParams["figure.figsize"] = 3, 3
+rcParams["font.family"] = "Inter"
+rcParams["font.size"] = 14
 
 df = (
     pd.read_csv(args.csv_path)
@@ -46,11 +47,12 @@ markers = [marker[i] for i in range(len(df["Type"].unique()))]
 # plt.xscale("log")
 plt.ylim(-0.05, 1.05)
 
-ticks = df[df["Type"] == "Single"]["read percentage"]
+# ticks = df[df["Type"] == "Single"]["read percentage"]
+ticks = [0, 25, 50, 75, 100]
 plt.xticks(ticks, ticks)
-plt.xticks(rotation=60)
+# plt.xticks(rotation=60)
 
-sns.lineplot(
+chart = sns.lineplot(
     data=df,
     x="read percentage",
     y="abort rate",
@@ -59,14 +61,19 @@ sns.lineplot(
     markers=markers,
 )
 
+chart.get_legend().set_title(None)
+
 plt.xlabel("Read percentage (%)")
 plt.ylabel("Abort rate")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
-plt.tight_layout()  # avoids cropping the labels
+# plt.tight_layout()  # avoids cropping the labels
+# plt.margins(tight=True)
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-abort-rate.pdf")
+    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-abort-rate.pdf"),
+    bbox_inches="tight",
+    pad_inches=0.0,
 )
