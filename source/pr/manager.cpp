@@ -6,6 +6,19 @@ manager::manager() {
   std::thread(
       // phase worker
       [this]() {
+        auto task = [](std::shared_ptr<pr> pr) {
+          auto counters = pr->fetch_and_reset_status();
+
+          double abort_rate = 0;
+          if (counters.commits > 0) {
+            abort_rate = (double)counters.aborts /
+                         (double)(counters.aborts + counters.commits);
+          }
+
+          pr->try_transition(abort_rate, counters.waiting,
+                             counters.aborts_for_no_stock);
+        };
+
         while (true) {
           std::this_thread::sleep_for(PHASE_INTERVAL);
 
@@ -17,16 +30,7 @@ manager::manager() {
           }
 
           for (auto&& [_, value] : values) {
-            auto counters = value->fetch_and_reset_status();
-
-            double abort_rate = 0;
-            if (counters.commits > 0) {
-              abort_rate = (double)counters.aborts /
-                           (double)(counters.aborts + counters.commits);
-            }
-
-            value->try_transition(abort_rate, counters.waiting,
-                                  counters.aborts_for_no_stock);
+            splittable::pool.push_task(task, value);
           }
         }
       })
@@ -49,12 +53,7 @@ auto manager::register_pr(std::shared_ptr<pr> pr) -> void {
   {
     std::lock_guard<std::mutex> lock(this->values_mutex);
     values = this->values;
-  }
-
-  values = values.set(pr->get_id(), pr);
-
-  {
-    std::lock_guard<std::mutex> lock(this->values_mutex);
+    values = values.set(pr->get_id(), pr);
     this->values = values;
   }
 }
@@ -68,12 +67,7 @@ auto manager::deregister_pr(std::shared_ptr<pr> pr) -> void {
   {
     std::lock_guard<std::mutex> lock(this->values_mutex);
     values = this->values;
-  }
-
-  values = values.erase(pr->get_id());
-
-  {
-    std::lock_guard<std::mutex> lock(this->values_mutex);
+    values = values.erase(pr->get_id());
     this->values = values;
   }
 }

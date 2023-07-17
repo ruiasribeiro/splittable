@@ -4,6 +4,7 @@
 #include <exception>
 #include <string>
 
+#include "BS_thread_pool.hpp"
 #include "wstm/stm.h"
 
 namespace splittable {
@@ -41,6 +42,8 @@ class splittable {
   auto static setup_transaction_tracking(WSTM::WAtomic& at) -> void;
 
  public:
+  static BS::thread_pool pool;
+
   auto static get_global_stats() -> status;
 
   auto virtual read(WSTM::WAtomic& at) -> uint = 0;

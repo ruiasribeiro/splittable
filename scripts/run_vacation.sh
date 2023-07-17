@@ -8,7 +8,7 @@ vacation_params=(-n4 -q60 -u90 -r1048576 -T4194304)
 
 for type in ${splittable_list[@]}; do
     make clean >/dev/null 2>&1
-    SPLITTABLE_TYPE="-DSPLITTABLE_USE_${type}" make >/dev/null 2>&1
+    SPLITTABLE_TYPE="${type}" make >/dev/null 2>&1
 
     echo "=========================="
     echo "Running $type..."
