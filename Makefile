@@ -22,7 +22,7 @@ DEPS := $(OBJS:.o=.d)
 
 SPLITTABLE_NUM_THREADS ?= 4
 SPLITTABLE_TYPE ?= MRV_FLEX_VECTOR #SINGLE
-CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic -O3 -march=native -DSPLITTABLE_USE_$(SPLITTABLE_TYPE) #-g -DSPLITTABLE_NUM_THREADS=$(SPLITTABLE_NUM_THREADS) -DSPLITTABLE_DEBUG
+CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++17 -Wall -Wextra -Wpedantic -O3 -march=native -DSPLITTABLE_USE_$(SPLITTABLE_TYPE) -DSPLITTABLE_NUM_THREADS=$(SPLITTABLE_NUM_THREADS) #-g -DSPLITTABLE_DEBUG
 LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -Wl,--end-group
 
 .PHONY: all
