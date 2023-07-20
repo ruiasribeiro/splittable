@@ -50,7 +50,7 @@ result_t run(size_t workers, seconds duration,
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
       size_t ops = 0;
-      uint val;
+      uint val{};
       bar.wait();
 
       auto now = steady_clock::now;
@@ -61,7 +61,7 @@ result_t run(size_t workers, seconds duration,
         ++ops;
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
       total_ops.fetch_add(ops);
     });
   }

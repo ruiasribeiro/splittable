@@ -341,7 +341,7 @@ int main(int argc, char** argv) {
   TIMER_T stop;
 
   /* Initialization */
-  parseArgs(argc, (char** const)argv);
+  parseArgs(argc, argv);
   managerPtr = initializeManager();
   assert(managerPtr != NULL);
   clients = initializeClients(managerPtr);

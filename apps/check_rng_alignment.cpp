@@ -12,11 +12,6 @@
 #define MAX_RANGE 128
 #define SEQUENCE_SIZE 10
 
-using std::chrono::duration;
-using std::chrono::duration_cast;
-using std::chrono::seconds;
-using std::chrono::steady_clock;
-
 using namespace std::chrono_literals;
 
 auto random_index_mt19937(size_t min, size_t max) -> size_t {
@@ -48,9 +43,6 @@ void run(size_t workers, std::function<size_t(size_t, size_t)> generate) {
       std::vector<uint64_t> sequence;
 
       bar.wait();
-
-      auto now = steady_clock::now;
-      auto start = now();
 
       for (auto j = 0; j < SEQUENCE_SIZE; ++j) {
         sequence.push_back(generate(0, MAX_RANGE - 1));

@@ -56,10 +56,10 @@ void client_run(void* argPtr) {
   long queryRange = clientPtr->queryRange;
   long percentUser = clientPtr->percentUser;
 
-  long types[numQueryPerTransaction];
-  long ids[numQueryPerTransaction];
-  long ops[numQueryPerTransaction];
-  long prices[numQueryPerTransaction];
+  long* types = new long[numQueryPerTransaction];
+  long* ids = new long[numQueryPerTransaction];
+  long* ops = new long[numQueryPerTransaction];
+  long* prices = new long[numQueryPerTransaction];
 
   for (long i = 0; i < numOperation; i++) {
     long r = randomPtr() % 100;
@@ -237,4 +237,9 @@ void client_run(void* argPtr) {
     } /* switch (action) */
 
   } /* for i */
+
+  delete[] types;
+  delete[] ids;
+  delete[] ops;
+  delete[] prices;
 }

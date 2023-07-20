@@ -4,7 +4,7 @@
 #include <thread>
 #include <vector>
 
-int main(int argc, char const *argv[]) {
+int main() {
   auto num_threads = 10ul;
 
   std::vector<std::thread> threads;
