@@ -186,7 +186,9 @@ auto mrv_flex_vector::remove_node() -> void {
 #endif
 }
 
-auto mrv_flex_vector::balance() -> void {
+auto mrv_flex_vector::balance() -> void { this->balance_minmax(); }
+
+auto mrv_flex_vector::balance_minmax() -> void {
   auto chunks = *std::atomic_load(&this->chunks).get();
   auto size = chunks.size();
 
@@ -225,6 +227,44 @@ auto mrv_flex_vector::balance() -> void {
 
       chunks[min_i]->Set(new_value + remainder, at);
       chunks[max_i]->Set(new_value, at);
+    });
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next balance phase
+  }
+}
+
+auto mrv_flex_vector::balance_random() -> void {
+  auto chunks = *std::atomic_load(&this->chunks).get();
+  auto size = chunks.size();
+
+  if (size < 2) {
+    return;
+  }
+
+  auto i = utils::random_index(0, size - 1);
+  auto j = utils::random_index(0, size - 1);
+
+  if (i == j) {
+    j = (i + 1) % size;
+  }
+
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto i_val = chunks[i]->Get(at);
+      auto j_val = chunks[j]->Get(at);
+
+      if (i_val == j_val ||
+          (i_val > j_val && i_val - j_val <= MIN_BALANCE_DIFF) ||
+          (i_val < j_val && j_val - i_val <= MIN_BALANCE_DIFF)) {
+        throw exception();
+      }
+
+      auto new_value = (i_val + j_val) / 2;
+      auto remainder = (i_val + j_val) % 2;
+
+      chunks[i]->Set(new_value + remainder, at);
+      chunks[j]->Set(new_value, at);
     });
   } catch (...) {
     // there is no problem if an exception is thrown, this will be tried again

@@ -49,6 +49,8 @@ class mrv_flex_vector : public mrv, public std::enable_shared_from_this<mrv_flex
   auto add_nodes(double abort_rate) -> void;
   auto remove_node() -> void;
   auto balance() -> void;
+  auto balance_minmax() -> void;
+  auto balance_random() -> void;
 };
 
 }  // namespace splittable::mrv
