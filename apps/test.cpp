@@ -45,7 +45,7 @@ result_t bm_single(size_t workers, seconds duration, int time_padding) {
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
-      double val;
+      double val{};
       bar.wait();
 
       auto now = steady_clock::now;
@@ -59,7 +59,7 @@ result_t bm_single(size_t workers, seconds duration, int time_padding) {
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 
@@ -87,7 +87,7 @@ result_t bm_mrv_flex_vector(size_t workers, seconds duration,
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
-      double val;
+      double val{};
       bar.wait();
 
       auto now = steady_clock::now;
@@ -101,7 +101,7 @@ result_t bm_mrv_flex_vector(size_t workers, seconds duration,
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 
@@ -131,7 +131,7 @@ result_t bm_pr_array(size_t workers, seconds duration, int time_padding) {
     threads[i] = std::thread([&, i, duration]() {
       value->register_thread();
 
-      double val;
+      double val{};
       bar.wait();
 
       auto now = steady_clock::now;
@@ -145,7 +145,7 @@ result_t bm_pr_array(size_t workers, seconds duration, int time_padding) {
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 

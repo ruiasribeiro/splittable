@@ -51,8 +51,8 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
-      double val;
-      uint val2;
+      double val{};
+      uint val2{};
       size_t reads = 0;
 
       bar.wait();
@@ -81,8 +81,8 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
         }
       }
 
-      volatile auto avoid_optimisation = val;
-      volatile auto avoid_optimisation2 = val2;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
+      volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
       total_reads.fetch_add(reads);
     });
   }
@@ -113,8 +113,8 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
-      double val;
-      uint val2;
+      double val{};
+      uint val2{};
       size_t reads = 0;
 
       bar.wait();
@@ -143,8 +143,8 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
         }
       }
 
-      volatile auto avoid_optimisation = val;
-      volatile auto avoid_optimisation2 = val2;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
+      volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
       total_reads.fetch_add(reads);
     });
   }
@@ -177,8 +177,8 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
     threads[i] = std::thread([&, i, duration]() {
       value->register_thread();
 
-      double val;
-      uint val2;
+      double val{};
+      uint val2{};
       size_t reads = 0;
 
       bar.wait();
@@ -207,8 +207,8 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
         }
       }
 
-      volatile auto avoid_optimisation = val;
-      volatile auto avoid_optimisation2 = val2;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
+      volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
       total_reads.fetch_add(reads);
     });
   }

@@ -17,15 +17,15 @@ struct exception : public std::exception {
   exception() : err(error::other) {}
   exception(error err) : err(err) {}
 
-  char* what() {
-    switch (err) {
-      case error::insufficient_value:
-        return "could not perform the subtraction";
-      case error::other:
-      default:
-        return "unknown error";
-    }
-  }
+  // char* what() {
+  //   switch (err) {
+  //     case error::insufficient_value:
+  //       return "could not perform the subtraction";
+  //     case error::other:
+  //     default:
+  //       return "unknown error";
+  //   }
+  // }
 };
 
 struct status {

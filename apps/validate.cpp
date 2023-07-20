@@ -39,7 +39,7 @@ uint run_single(size_t workers) {
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, workload]() {
-      double val;
+      double val{};
       bar.wait();
 
       for (auto j = 0ul; j < workload; j++) {
@@ -53,7 +53,7 @@ uint run_single(size_t workers) {
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 
@@ -76,7 +76,7 @@ uint run_mrv_flex_vector(size_t workers) {
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, workload]() {
-      double val;
+      double val{};
       bar.wait();
 
       for (auto j = 0ul; j < workload; j++) {
@@ -87,7 +87,7 @@ uint run_mrv_flex_vector(size_t workers) {
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 
@@ -114,7 +114,7 @@ uint run_pr_array(size_t workers) {
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, workload]() {
-      double val;
+      double val{};
       value->register_thread();
       bar.wait();
 
@@ -126,7 +126,7 @@ uint run_pr_array(size_t workers) {
         });
       }
 
-      volatile auto avoid_optimisation = val;
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
     });
   }
 
