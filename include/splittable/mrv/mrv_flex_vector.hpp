@@ -16,7 +16,7 @@
 
 namespace splittable::mrv {
 
-class mrv_flex_vector : public mrv {
+class mrv_flex_vector : public mrv, public std::enable_shared_from_this<mrv_flex_vector> {
  private:
   // 16 bits for aborts, 16 bits for commits
   std::atomic_uint32_t status_counters;

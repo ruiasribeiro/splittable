@@ -7,6 +7,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <random>
 
 #include "splittable/benchmarks/vacation/client.h"
@@ -293,12 +294,12 @@ static void checkTables(manager_t* managerPtr) {
   /* Check reservation tables for consistency and unique ids */
   for (t = 0; t < numTable; t++) {
     for (i = 1; i <= numRelation; i++) {
-      auto f = tbls[t]->GetReadOnly().find(i);
-      if (f != nullptr) {
-        assert(manager_add[t](managerPtr, i, 0, 0)); /* validate entry */
+      WSTM::Atomically([&](WSTM::WAtomic& at) {
+        auto table = tbls[t]->Get(at);
+        auto f = table.find(i);
+        if (f != nullptr) {
+          assert(manager_add[t](managerPtr, i, 0, 0)); /* validate entry */
 
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          auto table = tbls[t]->Get(at);
           auto updated_table = table.erase(i);
           if (updated_table != table) {
             auto second_updated_table = updated_table.erase(i);
@@ -307,8 +308,8 @@ static void checkTables(manager_t* managerPtr) {
           } else {
             tbls[t]->Set(updated_table, at);
           }
-        });
-      }
+        }
+      });
     }
   }
 

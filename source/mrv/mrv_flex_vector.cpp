@@ -66,29 +66,29 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
   setup_transaction_tracking(at);
 
   at.OnFail([this]() { this->add_aborts(1u); });
-  at.After([this]() { this->add_commits(1u); });
+  at.After([ptr = weak_from_this()]() {
+    // this weak_ptr was needed to avoid a segfault in Vacation
+    if (auto value = ptr.lock()) {
+      value->add_commits(1u);
+    }
+  });
 
   auto chunks = *std::atomic_load(&this->chunks).get();
   auto index = utils::random_index(0, chunks.size() - 1);
 
-  auto current_value = chunks.at(index)->Get(at);
-  // assert(current_value <= (current_value + value));
+  auto current_value = chunks[index]->Get(at);
+  assert(current_value <= (current_value + value));  // wraparound check
   current_value += value;
-  chunks.at(index)->Set(current_value, at);
+  chunks[index]->Set(current_value, at);
 }
 
 auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   setup_transaction_tracking(at);
 
-  auto completed = false;
-
-  at.OnFail([this, &completed]() {
-    // if this function is called and `completed` is true, we know that the
-    // transaction failed due to no stock, so we do not need to increment the
-    // abort counter
-    if (completed) {
-      return;
-    }
+  at.OnFail([this]() {
+    // TODO: get some way of check if the transaction aborted due to no stock or
+    // mere conflict; cannot use a reference to a local bool (as before) since
+    // it goes out of scope when the function ends
     this->add_aborts(1u);
   });
   at.After([this]() { this->add_commits(1u); });
@@ -99,16 +99,16 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   auto index = start;
   auto success = false;
 
-  while (!success) {
-    auto current_chunk = chunks.at(index)->Get(at);
+  while (true) {
+    auto current_chunk = chunks[index]->Get(at);
 
     if (current_chunk > value) {
-      chunks.at(index)->Set(current_chunk - value, at);
+      chunks[index]->Set(current_chunk - value, at);
       success = true;
       break;
     } else if (current_chunk != 0) {
       value -= current_chunk;
-      chunks.at(index)->Set(0, at);
+      chunks[index]->Set(0, at);
     }
 
     index = (index + 1) % size;
@@ -117,7 +117,6 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
     }
   }
 
-  completed = true;
   if (!success) {
     throw exception();
   }
@@ -167,7 +166,7 @@ auto mrv_flex_vector::remove_node() -> void {
         auto last_chunk = chunks[size - 1];
         auto last_chunk_value = last_chunk->Get(at);
 
-        // this ensures that others threads reading/writing to the last_chunk
+        // this ensures that other threads reading/writing to the last_chunk
         // will conflict
         last_chunk->Set(0, at);
 
