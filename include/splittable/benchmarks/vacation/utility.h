@@ -102,10 +102,10 @@
 
 #if defined(SPLITTABLE_USE_MRV_FLEX_VECTOR)
 using splittable_type = splittable::mrv::mrv_flex_vector;
-#elif defined(SPLITTABLE_USE_PR_ARRAY)
-using splittable_type = splittable::pr::pr_array;
+#define SPLITTABLE_TYPE_NAME "mrv_flex_vector"
 #elif defined(SPLITTABLE_USE_SINGLE)
 using splittable_type = splittable::single::single;
+#define SPLITTABLE_TYPE_NAME "single"
 #endif
 
 class cancel_transaction : public std::exception {};

@@ -158,8 +158,8 @@ static manager_t* initializeManager() {
   long t;
   long numTable = sizeof(manager_add) / sizeof(manager_add[0]);
 
-  printf("Initializing manager... ");
-  fflush(stdout);
+  // printf("Initializing manager... ");
+  // fflush(stdout);
 
   managerPtr = new manager_t();
   assert(managerPtr != NULL);
@@ -192,8 +192,8 @@ static manager_t* initializeManager() {
 
   } /* for t */
 
-  puts("done.");
-  fflush(stdout);
+  // puts("done.");
+  // fflush(stdout);
 
   free(ids);
 
@@ -216,8 +216,8 @@ static client_t** initializeClients(manager_t* managerPtr) {
   long queryRange;
   long percentUser = (long)global_params[PARAM_USER];
 
-  printf("Initializing clients... ");
-  fflush(stdout);
+  // printf("Initializing clients... ");
+  // fflush(stdout);
 
   clients = (client_t**)malloc(numClient * sizeof(client_t*));
   assert(clients != NULL);
@@ -231,16 +231,16 @@ static client_t** initializeClients(manager_t* managerPtr) {
     assert(clients[i] != NULL);
   }
 
-  puts("done.");
-  printf("    Transactions        = %li\n", numTransaction);
-  printf("    Clients             = %li\n", numClient);
-  printf("    Transactions/client = %li\n", numTransactionPerClient);
-  printf("    Queries/transaction = %li\n", numQueryPerTransaction);
-  printf("    Relations           = %li\n", numRelation);
-  printf("    Query percent       = %li\n", percentQuery);
-  printf("    Query range         = %li\n", queryRange);
-  printf("    Percent user        = %li\n", percentUser);
-  fflush(stdout);
+  // puts("done.");
+  // printf("    Transactions        = %li\n", numTransaction);
+  // printf("    Clients             = %li\n", numClient);
+  // printf("    Transactions/client = %li\n", numTransactionPerClient);
+  // printf("    Queries/transaction = %li\n", numQueryPerTransaction);
+  // printf("    Relations           = %li\n", numRelation);
+  // printf("    Query percent       = %li\n", percentQuery);
+  // printf("    Query range         = %li\n", queryRange);
+  // printf("    Percent user        = %li\n", percentUser);
+  // fflush(stdout);
 
   return clients;
 }
@@ -268,8 +268,8 @@ static void checkTables(manager_t* managerPtr) {
       &manager_addCar, &manager_addFlight, &manager_addRoom};
   long t;
 
-  printf("Checking tables... ");
-  fflush(stdout);
+  // printf("Checking tables... ");
+  // fflush(stdout);
 
   /* Check for unique customer IDs */
   long percentQuery = (long)global_params[PARAM_QUERIES];
@@ -312,8 +312,8 @@ static void checkTables(manager_t* managerPtr) {
     }
   }
 
-  puts("done.");
-  fflush(stdout);
+  // puts("done.");
+  // fflush(stdout);
 }
 
 /* =============================================================================
@@ -349,26 +349,34 @@ int main(int argc, char** argv) {
   thread_startup(numThread);
 
   /* Run transactions */
-  printf("Running clients... ");
+  // printf("Running clients... ");
   fflush(stdout);
   TIMER_READ(start);
   thread_start(client_run, (void*)clients);
   TIMER_READ(stop);
-  puts("done.");
-  printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
-  fflush(stdout);
+  // puts("done.");
+  // printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
+  // fflush(stdout);
+
   checkTables(managerPtr);
 
+  // benchmark,workers,execution time (s),abort rate
+  auto stats = splittable::splittable::get_global_stats();
+  auto abort_rate =
+      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
+  std::cout << SPLITTABLE_TYPE_NAME << "," << numThread << ","
+            << TIMER_DIFF_SECONDS(start, stop) << "," << abort_rate << "\n";
+
   /* Clean up */
-  printf("Deallocating memory... ");
-  fflush(stdout);
+  // printf("Deallocating memory... ");
+  // fflush(stdout);
   freeClients(clients);
   /*
    * TODO: The contents of the manager's table need to be deallocated.
    */
   delete managerPtr;
-  puts("done.");
-  fflush(stdout);
+  // puts("done.");
+  // fflush(stdout);
 
   thread_shutdown();
 
