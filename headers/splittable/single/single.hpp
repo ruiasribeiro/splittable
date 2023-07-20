@@ -1,7 +1,8 @@
 #pragma once
 
+#include <wstm/stm.h>
+
 #include "splittable/splittable.hpp"
-#include "wstm/stm.h"
 
 namespace splittable::single {
 

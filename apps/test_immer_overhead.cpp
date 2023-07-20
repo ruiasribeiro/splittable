@@ -1,19 +1,18 @@
+#include <wstm/stm.h>
+
 #include <boost/thread/barrier.hpp>
 #include <chrono>
+#include <immer/flex_vector.hpp>
+#include <immer/flex_vector_transient.hpp>
 #include <iostream>
 #include <new>
 #include <thread>
 #include <vector>
 
-#include "immer/flex_vector.hpp"
-#include "immer/flex_vector_transient.hpp"
-#include "wstm/stm.h"
-
 using std::chrono::duration;
 using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
 using std::chrono::seconds;
-using std::chrono::system_clock;
+using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
@@ -47,7 +46,7 @@ result_t bm_stl_vector(size_t workers, seconds duration, int time_padding) {
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -92,7 +91,7 @@ result_t bm_stl_vector_ptrs(size_t workers, seconds duration,
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -140,7 +139,7 @@ result_t bm_immer_flex_vector(size_t workers, seconds duration,
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {

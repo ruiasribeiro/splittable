@@ -1,11 +1,11 @@
 #pragma once
 
+#include <wstm/stm.h>
+
+#include <BS_thread_pool.hpp>
 #include <atomic>
 #include <exception>
 #include <string>
-
-#include "BS_thread_pool.hpp"
-#include "wstm/stm.h"
 
 namespace splittable {
 

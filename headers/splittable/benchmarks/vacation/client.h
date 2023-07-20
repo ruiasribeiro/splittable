@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <wstm/stm.h>
+
 #include <cassert>
 #include <random>
 
@@ -11,7 +13,6 @@
 #include "manager.h"
 #include "thread.h"
 #include "utility.h"
-#include "wstm/stm.h"
 
 struct client_t {
   long id;

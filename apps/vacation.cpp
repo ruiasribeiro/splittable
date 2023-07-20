@@ -3,6 +3,7 @@
  */
 
 #include <getopt.h>
+#include <wstm/stm.h>
 
 #include <cassert>
 #include <cstdio>
@@ -15,7 +16,6 @@
 #include "splittable/benchmarks/vacation/thread.h"
 #include "splittable/benchmarks/vacation/timer.h"
 #include "splittable/benchmarks/vacation/utility.h"
-#include "wstm/stm.h"
 
 enum param_types {
   PARAM_CLIENTS = (unsigned char)'t',
