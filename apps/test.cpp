@@ -1,3 +1,5 @@
+#include <wstm/stm.h>
+
 #include <boost/thread/barrier.hpp>
 #include <chrono>
 #include <cstdint>
@@ -8,7 +10,6 @@
 #include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
 #include "splittable/single/single.hpp"
-#include "wstm/stm.h"
 
 #define CACHE_LINE_SIZE 64
 #define VALUE_SIZE 8
@@ -16,9 +17,8 @@
 
 using std::chrono::duration;
 using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
 using std::chrono::seconds;
-using std::chrono::system_clock;
+using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
@@ -48,7 +48,7 @@ result_t bm_single(size_t workers, seconds duration, int time_padding) {
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -79,7 +79,7 @@ result_t bm_single(size_t workers, seconds duration, int time_padding) {
 }
 
 result_t bm_mrv_flex_vector(size_t workers, seconds duration,
-                             int time_padding) {
+                            int time_padding) {
   auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
   auto threads = std::make_unique<std::thread[]>(workers);
 
@@ -90,7 +90,7 @@ result_t bm_mrv_flex_vector(size_t workers, seconds duration,
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -134,7 +134,7 @@ result_t bm_pr_array(size_t workers, seconds duration, int time_padding) {
       double val;
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {

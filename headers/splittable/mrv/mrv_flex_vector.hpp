@@ -1,22 +1,24 @@
 #pragma once
 
+#include <wstm/stm.h>
+
 #include <atomic>
+#include <immer/algorithm.hpp>
+#include <immer/flex_vector.hpp>
+#include <immer/flex_vector_transient.hpp>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <vector>
 
-#include "immer/algorithm.hpp"
-#include "immer/flex_vector.hpp"
-#include "immer/flex_vector_transient.hpp"
 #include "splittable/mrv/manager.hpp"
 #include "splittable/mrv/mrv.hpp"
 #include "splittable/utils/random.hpp"
-#include "wstm/stm.h"
 
 namespace splittable::mrv {
 
-class mrv_flex_vector : public mrv, public std::enable_shared_from_this<mrv_flex_vector> {
+class mrv_flex_vector : public mrv,
+                        public std::enable_shared_from_this<mrv_flex_vector> {
  private:
   // 16 bits for aborts, 16 bits for commits
   std::atomic_uint32_t status_counters;

@@ -1,21 +1,22 @@
 #pragma once
 
+#include <immer/map.hpp>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
 
-#include "immer/map.hpp"
-#include "splittable/pr/pr.hpp"
+#include "splittable/mrv/mrv.hpp"
 
-namespace splittable::pr {
+namespace splittable::mrv {
 
 class manager {
  private:
-  inline static const auto PHASE_INTERVAL = std::chrono::milliseconds(20);
+  inline static const auto ADJUST_INTERVAL = std::chrono::milliseconds(1000);
+  inline static const auto BALANCE_INTERVAL = std::chrono::milliseconds(100);
 
-  using values_type = immer::map<uint, std::shared_ptr<pr>>;
+  using values_type = immer::map<uint, std::shared_ptr<mrv>>;
 
   values_type values;
   std::mutex values_mutex;  // needed to prevent data races on the assignment
@@ -31,8 +32,8 @@ class manager {
 
   auto static get_instance() -> manager&;
 
-  auto register_pr(std::shared_ptr<pr> pr) -> void;
-  auto deregister_pr(std::shared_ptr<pr> pr) -> void;
+  auto register_mrv(std::shared_ptr<mrv> mrv) -> void;
+  auto deregister_mrv(std::shared_ptr<mrv> mrv) -> void;
 };
 
-}  // namespace splittable::pr
+}  // namespace splittable::mrv

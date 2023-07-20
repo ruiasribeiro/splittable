@@ -1,3 +1,5 @@
+#include <wstm/stm.h>
+
 #include <boost/thread/barrier.hpp>
 #include <chrono>
 #include <cstdint>
@@ -7,7 +9,6 @@
 
 #include "splittable/mrv/mrv_flex_vector.hpp"
 #include "splittable/pr/pr_array.hpp"
-#include "wstm/stm.h"
 
 #define TOTAL_ITERATIONS 100000
 #define TIME_PADDING 100000

@@ -8,13 +8,14 @@
 
 #pragma once
 
+#include <wstm/stm.h>
+
 #include <cassert>
 #include <cstdlib>
+#include <immer/set.hpp>
 #include <memory>
 
-#include "immer/set.hpp"
 #include "reservation.h"
-#include "wstm/stm.h"
 
 struct customer_t {
   long id;

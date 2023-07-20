@@ -8,12 +8,13 @@
 
 #pragma once
 
+#include <wstm/stm.h>
+
 #include <boost/functional/hash.hpp>
 #include <memory>
 
 #include "splittable/splittable.hpp"
 #include "utility.h"
-#include "wstm/stm.h"
 
 enum reservation_type_t {
   RESERVATION_CAR,

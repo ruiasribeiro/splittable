@@ -1,3 +1,5 @@
+#include <wstm/stm.h>
+
 #include <atomic>
 #include <boost/thread/barrier.hpp>
 #include <chrono>
@@ -10,7 +12,6 @@
 #include "splittable/pr/pr_array.hpp"
 #include "splittable/single/single.hpp"
 #include "splittable/utils/random.hpp"
-#include "wstm/stm.h"
 
 #define TIME_PADDING 100000
 
@@ -20,9 +21,8 @@
 
 using std::chrono::duration;
 using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
 using std::chrono::seconds;
-using std::chrono::system_clock;
+using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
@@ -57,7 +57,7 @@ result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
 
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -119,7 +119,7 @@ result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
 
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {
@@ -183,7 +183,7 @@ result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
 
       bar.wait();
 
-      auto now = high_resolution_clock::now;
+      auto now = steady_clock::now;
       auto start = now();
 
       while ((now() - start) < duration) {

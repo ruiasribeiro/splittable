@@ -1,5 +1,7 @@
 #pragma once
 
+#include <wstm/stm.h>
+
 #include <algorithm>
 #include <atomic>
 #include <iostream>
@@ -8,7 +10,6 @@
 
 #include "splittable/pr/manager.hpp"
 #include "splittable/pr/pr.hpp"
-#include "wstm/stm.h"
 
 namespace splittable::pr {
 
