@@ -3,6 +3,9 @@
 namespace splittable::single {
 single::single(uint value) : value(value) {}
 
+auto single::thread_init() -> void {}
+auto single::global_init(uint) -> void {}
+
 auto single::new_instance(uint value) -> std::shared_ptr<single> {
   return std::make_shared<single>(value);
 }

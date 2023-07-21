@@ -25,6 +25,9 @@ class mrv : public splittable {
   // auto virtual static new_mrv(uint size) -> std::shared_ptr<mrv> = 0;
   // auto virtual static delete_mrv(std::shared_ptr<mrv>) -> void = 0;
 
+  auto static thread_init() -> void;
+  auto static global_init(uint num_threads) -> void;
+
   auto virtual get_id() -> uint = 0;
 
   auto virtual add_aborts(uint count) -> void = 0;
