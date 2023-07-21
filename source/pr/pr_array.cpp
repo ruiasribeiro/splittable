@@ -2,12 +2,6 @@
 
 namespace splittable::pr {
 
-std::atomic_uint pr_array::thread_id_counter{0};
-// needs to be set with register_thread()
-thread_local uint pr_array::thread_id;
-// needs to be set with set_num_threads()
-uint pr_array::num_threads;
-
 pr_array::pr_array(uint value) : status_counters(0) {
   this->id = id_counter.fetch_add(1, std::memory_order_relaxed);
   this->single_value = WSTM::WVar<uint>(value);
@@ -133,15 +127,6 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
     this->single_value.Set(current_value - to_sub, at);
   }
 }
-
-// should only be called once, at the start of the thread. it is assumed that
-// once a thread is registered it runs until the end
-auto pr_array::register_thread() -> void {
-  thread_id = thread_id_counter.fetch_add(1, std::memory_order_relaxed);
-}
-
-// should only be called once, at the start of the program
-auto pr_array::set_num_threads(uint num) -> void { num_threads = num; }
 
 auto pr_array::try_transition(double abort_rate, uint waiting,
                               uint aborts_for_no_stock) -> void {

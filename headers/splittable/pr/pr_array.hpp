@@ -48,10 +48,6 @@ class pr_array : public pr {
 
   WSTM::WVar<bool> is_splitted;
 
-  static std::atomic_uint thread_id_counter;
-  static thread_local uint thread_id;
-  static uint num_threads;
-
  public:
   // TODO: this is not private because of make_shared, need to revise that later
   pr_array(uint value);
@@ -71,10 +67,6 @@ class pr_array : public pr {
   // auto inconsistent_read(WSTM::WInconsistent& inc) -> uint;
   auto add(WSTM::WAtomic& at, uint value) -> void;
   auto sub(WSTM::WAtomic& at, uint value) -> void;
-
-  auto register_thread() -> void;
-  // auto unregister_thread() -> void;
-  auto static set_num_threads(uint num) -> void;
 
   auto try_transition(double abort_rate, uint waiting, uint aborts_for_no_stock)
       -> void;
