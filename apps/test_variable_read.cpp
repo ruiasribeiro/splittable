@@ -13,10 +13,6 @@
 #include "splittable/single/single.hpp"
 #include "splittable/utils/random.hpp"
 
-#define TIME_PADDING 100000
-
-using std::chrono::duration;
-using std::chrono::duration_cast;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
 
@@ -39,7 +35,8 @@ double waste_time(size_t iterations) {
 }
 
 template <typename S>
-result_t run(size_t workers, size_t read_percentage, seconds duration) {
+result_t run(size_t workers, size_t read_percentage, seconds duration,
+             size_t time_padding) {
   auto total_reads = std::atomic_uint(0);
 
   auto value = S::new_instance(0);
@@ -67,7 +64,7 @@ result_t run(size_t workers, size_t read_percentage, seconds duration) {
             splittable::utils::random_index(1, 100) <= read_percentage;
 
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
 
           if (does_read) {
             val2 = value->read(at);
@@ -75,7 +72,7 @@ result_t run(size_t workers, size_t read_percentage, seconds duration) {
             value->add(at, 1);
           }
 
-          val = waste_time(TIME_PADDING);
+          val = waste_time(time_padding);
         });
 
         if (does_read) {
@@ -106,9 +103,9 @@ result_t run(size_t workers, size_t read_percentage, seconds duration) {
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 5) {
+  if (argc < 6) {
     std::cerr << "requires 4 positional arguments: benchmark, number of "
-                 "workers, read percentage (%), execution time (s)\n";
+                 "workers, read percentage (%), execution time (s), padding\n";
     return 1;
   }
 
@@ -139,16 +136,24 @@ int main(int argc, char const* argv[]) {
     return 1;
   }
 
-  seconds execution_time;
+  seconds duration;
   try {
-    execution_time = seconds{std::stoi(argv[4])};
+    duration = seconds{std::stoi(argv[4])};
   } catch (...) {
     std::cerr << "could not convert \"" << argv[4] << "\" to an integer\n";
     return 1;
   }
 
-  if (execution_time.count() < 1) {
+  if (duration.count() < 1) {
     std::cerr << "minimum of 1 second is required\n";
+    return 1;
+  }
+
+  size_t padding;
+  try {
+    padding = std::stoul(argv[4]);
+  } catch (...) {
+    std::cerr << "could not convert \"" << argv[4] << "\" to an integer\n";
     return 1;
   }
 
@@ -157,13 +162,13 @@ int main(int argc, char const* argv[]) {
   result_t result;
   if (benchmark == "single") {
     using splittable_t = splittable::single::single;
-    result = run<splittable_t>(workers, read_percentage, execution_time);
+    result = run<splittable_t>(workers, read_percentage, duration, padding);
   } else if (benchmark == "mrv-flex-vector") {
     using splittable_t = splittable::mrv::mrv_flex_vector;
-    result = run<splittable_t>(workers, read_percentage, execution_time);
+    result = run<splittable_t>(workers, read_percentage, duration, padding);
   } else if (benchmark == "pr-array") {
     using splittable_t = splittable::pr::pr_array;
-    result = run<splittable_t>(workers, read_percentage, execution_time);
+    result = run<splittable_t>(workers, read_percentage, duration, padding);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
               << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";
@@ -172,11 +177,11 @@ int main(int argc, char const* argv[]) {
 
   // CSV: benchmark, workers, execution time, read percentage, writes, reads,
   // write throughput (ops/s), read throughput (ops/s), abort rate
-  std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << read_percentage << "," << result.writes << ","
-            << result.reads << "," << result.writes / execution_time.count()
-            << "," << result.reads / execution_time.count() << ","
-            << result.abort_rate << "\n";
+  std::cout << benchmark << "," << workers << "," << duration.count() << ","
+            << read_percentage << "," << result.writes << "," << result.reads
+            << "," << result.writes / duration.count() << ","
+            << result.reads / duration.count() << "," << result.abort_rate
+            << "\n";
 
   // return 0;
   quick_exit(0);
