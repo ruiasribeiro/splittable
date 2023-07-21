@@ -6,6 +6,7 @@
 #include <atomic>
 #include <iostream>
 #include <memory>
+#include <new>
 #include <variant>
 
 #include "splittable/pr/manager.hpp"
@@ -15,11 +16,19 @@ namespace splittable::pr {
 
 class pr_array : public pr {
  private:
+  // this struct allows for explicit alignment of the transactional variables,
+  // useful for avoiding false sharing
+  struct alignas(std::hardware_destructive_interference_size) chunk_t
+      : public WSTM::WVar<uint> {
+    // inherit all of the constructors
+    using WSTM::WVar<uint>::WVar;
+  };
+
   struct splitted {
     // each of the values needs to be a WVar, I think, to allow transactions to
     // rollback if needed. if they're not WVars, even if each thread only
     // accesses its chunk, there could be some data inconsistency
-    std::vector<WSTM::WVar<uint>> chunks;
+    std::vector<chunk_t> chunks;
     split_operation op;
   };
 

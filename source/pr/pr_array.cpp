@@ -189,9 +189,9 @@ auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
 
       new_splitted->chunks.reserve(num_threads);
 
-      new_splitted->chunks[0] = WSTM::WVar<uint>(chunk_val + remainder);
+      new_splitted->chunks[0] = chunk_t(chunk_val + remainder);
       for (auto i = 1u; i < num_threads; ++i) {
-        new_splitted->chunks[i] = WSTM::WVar<uint>(chunk_val);
+        new_splitted->chunks[i] = chunk_t(chunk_val);
       }
 
       this->splitted_value.Set(new_splitted, at);

@@ -5,7 +5,7 @@ namespace splittable::mrv {
 mrv_flex_vector::mrv_flex_vector(uint value) : status_counters(0) {
   this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
 
-  auto chunks = chunks_t{std::make_shared<WSTM::WVar<uint>>(value)};
+  auto chunks = chunks_t{std::make_shared<chunk_t>(value)};
   this->chunks = std::make_shared<chunks_t>(chunks);
 }
 
@@ -140,7 +140,7 @@ auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
 
   auto t = chunks.transient();
   for (auto i = 0u; i < to_add; ++i) {
-    t.push_back(std::make_shared<WSTM::WVar<uint>>(0u));
+    t.push_back(std::make_shared<chunk_t>(0u));
   }
 
   std::atomic_store(&this->chunks, std::make_shared<chunks_t>(t.persistent()));

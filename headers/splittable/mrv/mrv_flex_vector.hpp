@@ -8,6 +8,7 @@
 #include <immer/flex_vector_transient.hpp>
 #include <iostream>
 #include <memory>
+#include <new>
 #include <numeric>
 #include <vector>
 
@@ -25,7 +26,15 @@ class mrv_flex_vector : public mrv,
 
   uint id;
 
-  using chunks_t = immer::flex_vector<std::shared_ptr<WSTM::WVar<uint>>>;
+  // this struct allows for explicit alignment of the transactional variables,
+  // useful for avoiding false sharing
+  struct alignas(std::hardware_destructive_interference_size) chunk_t
+      : public WSTM::WVar<uint> {
+    // inherit all of the constructors
+    using WSTM::WVar<uint>::WVar;
+  };
+
+  using chunks_t = immer::flex_vector<std::shared_ptr<chunk_t>>;
   // this pointer is only accessed with atomic instructions
   std::shared_ptr<chunks_t> chunks;
 
