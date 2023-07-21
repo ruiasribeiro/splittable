@@ -15,10 +15,6 @@
 
 #define TIME_PADDING 100000
 
-#define CACHE_LINE_SIZE 64
-#define VALUE_SIZE 8
-#define PADDING (CACHE_LINE_SIZE / VALUE_SIZE)
-
 using std::chrono::duration;
 using std::chrono::duration_cast;
 using std::chrono::seconds;
@@ -42,140 +38,20 @@ double waste_time(size_t iterations) {
   return value;
 }
 
-result_t bm_single(size_t workers, size_t read_percentage, seconds duration) {
+template <typename S>
+result_t run(size_t workers, size_t read_percentage, seconds duration) {
   auto total_reads = std::atomic_uint(0);
-  auto value = splittable::single::single::new_instance(0);
+
+  auto value = S::new_instance(0);
+  S::global_init(workers);
+
   auto threads = std::make_unique<std::thread[]>(workers);
 
   boost::barrier bar(workers + 1);
 
   for (size_t i = 0; i < workers; i++) {
     threads[i] = std::thread([&, i, duration]() {
-      double val{};
-      uint val2{};
-      size_t reads = 0;
-
-      bar.wait();
-
-      auto now = steady_clock::now;
-      auto start = now();
-
-      while ((now() - start) < duration) {
-        auto does_read =
-            splittable::utils::random_index(1, 100) <= read_percentage;
-
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
-
-          if (does_read) {
-            val2 = value->read(at);
-          } else {
-            value->add(at, 1);
-          }
-
-          val = waste_time(TIME_PADDING);
-        });
-
-        if (does_read) {
-          reads++;
-        }
-      }
-
-      volatile auto avoid_optimisation __attribute__((unused)) = val;
-      volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
-      total_reads.fetch_add(reads);
-    });
-  }
-
-  bar.wait();
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i].join();
-  }
-
-  auto writes =
-      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
-  auto stats = splittable::splittable::get_global_stats();
-  auto abort_rate =
-      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
-
-  return {
-      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
-}
-
-result_t bm_mrv_flex_vector(size_t workers, size_t read_percentage,
-                            seconds duration) {
-  auto total_reads = std::atomic_uint(0);
-  auto value = splittable::mrv::mrv_flex_vector::new_instance(0);
-  auto threads = std::make_unique<std::thread[]>(workers);
-
-  boost::barrier bar(workers + 1);
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
-      double val{};
-      uint val2{};
-      size_t reads = 0;
-
-      bar.wait();
-
-      auto now = steady_clock::now;
-      auto start = now();
-
-      while ((now() - start) < duration) {
-        auto does_read =
-            splittable::utils::random_index(1, 100) <= read_percentage;
-
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(TIME_PADDING);
-
-          if (does_read) {
-            val2 = value->read(at);
-          } else {
-            value->add(at, 1);
-          }
-
-          val = waste_time(TIME_PADDING);
-        });
-
-        if (does_read) {
-          reads++;
-        }
-      }
-
-      volatile auto avoid_optimisation __attribute__((unused)) = val;
-      volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
-      total_reads.fetch_add(reads);
-    });
-  }
-
-  bar.wait();
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i].join();
-  }
-
-  auto writes =
-      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
-  auto stats = splittable::splittable::get_global_stats();
-  auto abort_rate =
-      static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
-
-  return {
-      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
-}
-
-result_t bm_pr_array(size_t workers, size_t read_percentage, seconds duration) {
-  splittable::pr::pr_array::set_num_threads(workers);
-  auto total_reads = std::atomic_uint(0);
-  auto value = splittable::pr::pr_array::new_instance(0);
-  auto threads = std::make_unique<std::thread[]>(workers);
-
-  boost::barrier bar(workers + 1);
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
-      value->register_thread();
+      S::thread_init();
 
       double val{};
       uint val2{};
@@ -280,11 +156,14 @@ int main(int argc, char const* argv[]) {
 
   result_t result;
   if (benchmark == "single") {
-    result = bm_single(workers, read_percentage, execution_time);
+    using splittable_t = splittable::single::single;
+    result = run<splittable_t>(workers, read_percentage, execution_time);
   } else if (benchmark == "mrv-flex-vector") {
-    result = bm_mrv_flex_vector(workers, read_percentage, execution_time);
+    using splittable_t = splittable::mrv::mrv_flex_vector;
+    result = run<splittable_t>(workers, read_percentage, execution_time);
   } else if (benchmark == "pr-array") {
-    result = bm_pr_array(workers, read_percentage, execution_time);
+    using splittable_t = splittable::pr::pr_array;
+    result = run<splittable_t>(workers, read_percentage, execution_time);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
               << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";
