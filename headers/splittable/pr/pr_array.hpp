@@ -14,7 +14,7 @@
 
 namespace splittable::pr {
 
-class pr_array : public pr {
+class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
  private:
   // this struct allows for explicit alignment of the transactional variables,
   // useful for avoiding false sharing

@@ -22,13 +22,12 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 SPLITTABLE_NUM_THREADS ?= 4
-SPLITTABLE_TYPE ?= MRV_FLEX_VECTOR #SINGLE
 
 CPPFLAGS := $(INC_FLAGS)
 # The `-Wno-array-bounds` is needed to surpress warnings from the immer library.
 CPPFLAGS += -Wall -Wextra -Wpedantic -Wno-array-bounds -Wno-interference-size
 CPPFLAGS += -MMD -MP -std=c++20 -march=native -O3 #-Og -g
-CPPFLAGS += -DSPLITTABLE_USE_$(SPLITTABLE_TYPE) -DSPLITTABLE_NUM_THREADS=$(SPLITTABLE_NUM_THREADS) #-DSPLITTABLE_DEBUG
+CPPFLAGS += -DSPLITTABLE_NUM_THREADS=$(SPLITTABLE_NUM_THREADS) -DSPLITTABLE_DEBUG
 LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -Wl,--end-group
 
 .PHONY: all

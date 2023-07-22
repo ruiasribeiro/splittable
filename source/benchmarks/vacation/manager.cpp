@@ -10,43 +10,49 @@
 
 #include <cassert>
 
+// explicit instantiations
+template struct manager_t<splittable::single::single>;
+template struct manager_t<splittable::mrv::mrv_flex_vector>;
+template struct manager_t<splittable::pr::pr_array>;
+
 /* =============================================================================
  * DECLARATION OF TM_SAFE FUNCTIONS
  * =============================================================================
  */
 
-long queryNumFree(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    long id);
+template <typename S>
+long queryNumFree(WSTM::WAtomic& at,
+                  immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+                  long id);
 
-long queryPrice(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    long id);
+template <typename S>
+long queryPrice(WSTM::WAtomic& at,
+                immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+                long id);
 
-bool reserve(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
-    long id, reservation_type_t type);
+template <typename S>
+bool reserve(WSTM::WAtomic& at,
+             immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+             immer::map<long, std::shared_ptr<customer_t>> custs,
+             long customerId, long id, reservation_type_t type);
 
-bool cancel(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
-    long id, reservation_type_t type);
+template <typename S>
+bool cancel(WSTM::WAtomic& at,
+            immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+            immer::map<long, std::shared_ptr<customer_t>> custs,
+            long customerId, long id, reservation_type_t type);
 
+template <typename S>
 bool addReservation(
     WSTM::WAtomic& at,
-    WSTM::WVar<
-        immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>& tbl,
+    WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<S>>>>& tbl,
     long id, long num, long price);
 
 /**
  * Constructor for manager objects
  */
-manager_t::manager_t() {}
+template <typename S>
+manager_t<S>::manager_t() {}
 
 /**
  * Destructor
@@ -54,7 +60,8 @@ manager_t::manager_t() {}
  * [mfs] notes in the earlier code suggest that contents are not deleted
  *       here.  That's bad, but we can't fix it yet.
  */
-manager_t::~manager_t() {}
+template <typename S>
+manager_t<S>::~manager_t() {}
 
 /* =============================================================================
  * ADMINISTRATIVE INTERFACE
@@ -71,10 +78,10 @@ manager_t::~manager_t() {}
  */
 //[wer210] return value not used before, now indicationg aborts.
 
+template <typename S>
 bool addReservation(
     WSTM::WAtomic& at,
-    WSTM::WVar<
-        immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>& tbl,
+    WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<S>>>>& tbl,
     long id, long num, long price) {
   auto table = tbl.Get(at);
   auto reservation = table.find(id);
@@ -87,9 +94,8 @@ bool addReservation(
       return true;
     }
 
-    table = table.insert(
-        std::make_pair(id, std::make_shared<reservation_t<splittable_type>>(
-                               id, num, price, &success)));
+    table = table.insert(std::make_pair(
+        id, std::make_shared<reservation_t<S>>(id, num, price, &success)));
     tbl.Set(table, at);
   } else {
     /* Update existing reservation */
@@ -136,8 +142,9 @@ bool addReservation(
  * =============================================================================
  */
 //[wer210] Return value not used before.
-bool manager_t::addCar(WSTM::WAtomic& at, long carId, long numCars,
-                       long price) {
+template <typename S>
+bool manager_t<S>::addCar(WSTM::WAtomic& at, long carId, long numCars,
+                          long price) {
   return addReservation(at, carTable, carId, numCars, price);
 }
 
@@ -150,7 +157,8 @@ bool manager_t::addCar(WSTM::WAtomic& at, long carId, long numCars,
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::deleteCar(WSTM::WAtomic& at, long carId, long numCar) {
+template <typename S>
+bool manager_t<S>::deleteCar(WSTM::WAtomic& at, long carId, long numCar) {
   /* -1 keeps old price */
   return addReservation(at, carTable, carId, -numCar, -1);
 }
@@ -162,8 +170,9 @@ bool manager_t::deleteCar(WSTM::WAtomic& at, long carId, long numCar) {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::addRoom(WSTM::WAtomic& at, long roomId, long numRoom,
-                        long price) {
+template <typename S>
+bool manager_t<S>::addRoom(WSTM::WAtomic& at, long roomId, long numRoom,
+                           long price) {
   return addReservation(at, roomTable, roomId, numRoom, price);
 }
 
@@ -176,7 +185,8 @@ bool manager_t::addRoom(WSTM::WAtomic& at, long roomId, long numRoom,
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::deleteRoom(WSTM::WAtomic& at, long roomId, long numRoom) {
+template <typename S>
+bool manager_t<S>::deleteRoom(WSTM::WAtomic& at, long roomId, long numRoom) {
   /* -1 keeps old price */
   return addReservation(at, roomTable, roomId, -numRoom, -1);
 }
@@ -188,8 +198,9 @@ bool manager_t::deleteRoom(WSTM::WAtomic& at, long roomId, long numRoom) {
  * -- Returns TRUE on success, FALSE on failure
  * =============================================================================
  */
-bool manager_t::addFlight(WSTM::WAtomic& at, long flightId, long numSeat,
-                          long price) {
+template <typename S>
+bool manager_t<S>::addFlight(WSTM::WAtomic& at, long flightId, long numSeat,
+                             long price) {
   return addReservation(at, flightTable, flightId, numSeat, price);
 }
 
@@ -201,7 +212,8 @@ bool manager_t::addFlight(WSTM::WAtomic& at, long flightId, long numSeat,
  * =============================================================================
  */
 //[wer210] return not used before, make it to indicate aborts
-bool manager_t::deleteFlight(WSTM::WAtomic& at, long flightId) {
+template <typename S>
+bool manager_t<S>::deleteFlight(WSTM::WAtomic& at, long flightId) {
   auto table = flightTable.Get(at);
   auto res = table.find(flightId);
 
@@ -230,7 +242,8 @@ bool manager_t::deleteFlight(WSTM::WAtomic& at, long flightId) {
 //[wer210] Function is called inside a transaction in client.c
 //         But return value of this function was never used,
 //         so I make it to return true all the time except when need to abort.
-bool manager_t::addCustomer(WSTM::WAtomic& at, long customerId) {
+template <typename S>
+bool manager_t<S>::addCustomer(WSTM::WAtomic& at, long customerId) {
   auto table = customerTable.Get(at);
   auto res = table.find(customerId);
 
@@ -260,8 +273,9 @@ bool manager_t::addCustomer(WSTM::WAtomic& at, long customerId) {
 //[wer210] Again, the return values were not used (except for test cases below)
 //         So I make it alway returning true, unless need to abort a
 //         transaction.
-bool manager_t::deleteCustomer(WSTM::WAtomic& at, long customerId) {
-  immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>
+template <typename S>
+bool manager_t<S>::deleteCustomer(WSTM::WAtomic& at, long customerId) {
+  immer::map<long, std::shared_ptr<reservation_t<S>>>
       tables[NUM_RESERVATION_TYPE];
   auto customer_table = customerTable.Get(at);
   auto res = customer_table.find(customerId);
@@ -308,10 +322,10 @@ bool manager_t::deleteCustomer(WSTM::WAtomic& at, long customerId) {
  * =============================================================================
  */
 
-long queryNumFree(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    long id) {
+template <typename S>
+long queryNumFree(WSTM::WAtomic& at,
+                  immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+                  long id) {
   long numFree = -1;
   auto res = tbl.find(id);
   if (res != nullptr) {
@@ -326,10 +340,10 @@ long queryNumFree(
  * =============================================================================
  */
 
-long queryPrice(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    long id) {
+template <typename S>
+long queryPrice(WSTM::WAtomic& at,
+                immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+                long id) {
   long price = -1;
   auto res = tbl.find(id);
   if (res != nullptr) {
@@ -344,7 +358,8 @@ long queryPrice(
  * -- Returns -1 if the car does not exist
  * =============================================================================
  */
-long manager_t::queryCar(WSTM::WAtomic& at, long carId) {
+template <typename S>
+long manager_t<S>::queryCar(WSTM::WAtomic& at, long carId) {
   return queryNumFree(at, carTable.Get(at), carId);
 }
 
@@ -354,7 +369,8 @@ long manager_t::queryCar(WSTM::WAtomic& at, long carId) {
  * -- Returns -1 if the car does not exist
  * =============================================================================
  */
-long manager_t::queryCarPrice(WSTM::WAtomic& at, long carId) {
+template <typename S>
+long manager_t<S>::queryCarPrice(WSTM::WAtomic& at, long carId) {
   return queryPrice(at, carTable.Get(at), carId);
 }
 
@@ -364,7 +380,8 @@ long manager_t::queryCarPrice(WSTM::WAtomic& at, long carId) {
  * -- Returns -1 if the room does not exist
  * =============================================================================
  */
-long manager_t::queryRoom(WSTM::WAtomic& at, long roomId) {
+template <typename S>
+long manager_t<S>::queryRoom(WSTM::WAtomic& at, long roomId) {
   return queryNumFree(at, roomTable.Get(at), roomId);
 }
 
@@ -374,7 +391,8 @@ long manager_t::queryRoom(WSTM::WAtomic& at, long roomId) {
  * -- Returns -1 if the room does not exist
  * =============================================================================
  */
-long manager_t::queryRoomPrice(WSTM::WAtomic& at, long roomId) {
+template <typename S>
+long manager_t<S>::queryRoomPrice(WSTM::WAtomic& at, long roomId) {
   return queryPrice(at, roomTable.Get(at), roomId);
 }
 
@@ -384,7 +402,8 @@ long manager_t::queryRoomPrice(WSTM::WAtomic& at, long roomId) {
  * -- Returns -1 if the flight does not exist
  * =============================================================================
  */
-long manager_t::queryFlight(WSTM::WAtomic& at, long flightId) {
+template <typename S>
+long manager_t<S>::queryFlight(WSTM::WAtomic& at, long flightId) {
   return queryNumFree(at, flightTable.Get(at), flightId);
 }
 
@@ -394,7 +413,8 @@ long manager_t::queryFlight(WSTM::WAtomic& at, long flightId) {
  * -- Returns -1 if the flight does not exist
  * =============================================================================
  */
-long manager_t::queryFlightPrice(WSTM::WAtomic& at, long flightId) {
+template <typename S>
+long manager_t<S>::queryFlightPrice(WSTM::WAtomic& at, long flightId) {
   return queryPrice(at, flightTable.Get(at), flightId);
 }
 
@@ -404,8 +424,8 @@ long manager_t::queryFlightPrice(WSTM::WAtomic& at, long flightId) {
  * -- Returns -1 if the customer does not exist
  * =============================================================================
  */
-
-long manager_t::queryCustomerBill(WSTM::WAtomic& at, long customerId) {
+template <typename S>
+long manager_t<S>::queryCustomerBill(WSTM::WAtomic& at, long customerId) {
   long bill = -1;
 
   auto res = customerTable.Get(at).find(customerId);
@@ -430,11 +450,11 @@ long manager_t::queryCustomerBill(WSTM::WAtomic& at, long customerId) {
 // values
 // to indicate if should restart a transaction.
 
-bool reserve(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
-    long id, reservation_type_t type) {
+template <typename S>
+bool reserve(WSTM::WAtomic& at,
+             immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+             immer::map<long, std::shared_ptr<customer_t>> custs,
+             long customerId, long id, reservation_type_t type) {
   auto cust = custs.find(customerId);
   if (cust == nullptr) {
     return true;
@@ -445,7 +465,7 @@ bool reserve(
   if (res == nullptr) {
     return true;
   }
-  reservation_t<splittable_type>* reservationPtr = res->get();
+  reservation_t<S>* reservationPtr = res->get();
 
   if (!reservationPtr->make(at)) {
     // return FALSE;
@@ -471,7 +491,8 @@ bool reserve(
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::reserveCar(WSTM::WAtomic& at, long customerId, long carId) {
+template <typename S>
+bool manager_t<S>::reserveCar(WSTM::WAtomic& at, long customerId, long carId) {
   return reserve(at, carTable.Get(at), customerTable.Get(at), customerId, carId,
                  RESERVATION_CAR);
 }
@@ -482,7 +503,9 @@ bool manager_t::reserveCar(WSTM::WAtomic& at, long customerId, long carId) {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::reserveRoom(WSTM::WAtomic& at, long customerId, long roomId) {
+template <typename S>
+bool manager_t<S>::reserveRoom(WSTM::WAtomic& at, long customerId,
+                               long roomId) {
   return reserve(at, roomTable.Get(at), customerTable.Get(at), customerId,
                  roomId, RESERVATION_ROOM);
 }
@@ -493,8 +516,9 @@ bool manager_t::reserveRoom(WSTM::WAtomic& at, long customerId, long roomId) {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::reserveFlight(WSTM::WAtomic& at, long customerId,
-                              long flightId) {
+template <typename S>
+bool manager_t<S>::reserveFlight(WSTM::WAtomic& at, long customerId,
+                                 long flightId) {
   return reserve(at, flightTable.Get(at), customerTable.Get(at), customerId,
                  flightId, RESERVATION_FLIGHT);
 }
@@ -507,12 +531,11 @@ bool manager_t::reserveFlight(WSTM::WAtomic& at, long customerId,
  */
 //[wer210] was a "static" function, invoked by three functions below
 //         however, never called.
-
-bool cancel(
-    WSTM::WAtomic& at,
-    immer::map<long, std::shared_ptr<reservation_t<splittable_type>>> tbl,
-    immer::map<long, std::shared_ptr<customer_t>> custs, long customerId,
-    long id, reservation_type_t type) {
+template <typename S>
+bool cancel(WSTM::WAtomic& at,
+            immer::map<long, std::shared_ptr<reservation_t<S>>> tbl,
+            immer::map<long, std::shared_ptr<customer_t>> custs,
+            long customerId, long id, reservation_type_t type) {
   auto cust = custs.find(customerId);
   if (cust == nullptr) {
     return false;
@@ -523,7 +546,7 @@ bool cancel(
   if (res == nullptr) {
     return false;
   }
-  reservation_t<splittable_type>* reservationPtr = res->get();
+  reservation_t<S>* reservationPtr = res->get();
 
   if (!reservationPtr->cancel(at)) {
     return false;
@@ -547,7 +570,8 @@ bool cancel(
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::cancelCar(WSTM::WAtomic& at, long customerId, long carId) {
+template <typename S>
+bool manager_t<S>::cancelCar(WSTM::WAtomic& at, long customerId, long carId) {
   return cancel(at, carTable.Get(at), customerTable.Get(at), customerId, carId,
                 RESERVATION_CAR);
 }
@@ -558,7 +582,8 @@ bool manager_t::cancelCar(WSTM::WAtomic& at, long customerId, long carId) {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::cancelRoom(WSTM::WAtomic& at, long customerId, long roomId) {
+template <typename S>
+bool manager_t<S>::cancelRoom(WSTM::WAtomic& at, long customerId, long roomId) {
   return cancel(at, roomTable.Get(at), customerTable.Get(at), customerId,
                 roomId, RESERVATION_ROOM);
 }
@@ -569,8 +594,9 @@ bool manager_t::cancelRoom(WSTM::WAtomic& at, long customerId, long roomId) {
  * -- Returns TRUE on success, else FALSE
  * =============================================================================
  */
-bool manager_t::cancelFlight(WSTM::WAtomic& at, long customerId,
-                             long flightId) {
+template <typename S>
+bool manager_t<S>::cancelFlight(WSTM::WAtomic& at, long customerId,
+                                long flightId) {
   return cancel(at, flightTable.Get(at), customerTable.Get(at), customerId,
                 flightId, RESERVATION_FLIGHT);
 }

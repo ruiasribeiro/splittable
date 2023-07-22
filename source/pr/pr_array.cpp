@@ -58,7 +58,11 @@ auto pr_array::read(WSTM::WAtomic& at) -> uint {
   setup_transaction_tracking(at);
 
   at.OnFail([this]() { this->add_aborts(1); });
-  at.After([this]() { this->add_commits(1); });
+  at.After([ptr = weak_from_this()]() {
+    if (auto value = ptr.lock()) {
+      value->add_commits(1u);
+    }
+  });
 
   if (this->is_splitted.Get(at)) {
     this->add_waiting(1);
@@ -72,7 +76,11 @@ auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
   setup_transaction_tracking(at);
 
   at.OnFail([this]() { this->add_aborts(1); });
-  at.After([this]() { this->add_commits(1); });
+  at.After([ptr = weak_from_this()]() {
+    if (auto value = ptr.lock()) {
+      value->add_commits(1u);
+    }
+  });
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
@@ -95,7 +103,11 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
   setup_transaction_tracking(at);
 
   at.OnFail([this]() { this->add_aborts(1); });
-  at.After([this]() { this->add_commits(1); });
+  at.After([ptr = weak_from_this()]() {
+    if (auto value = ptr.lock()) {
+      value->add_commits(1u);
+    }
+  });
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
@@ -130,30 +142,27 @@ auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
 
 auto pr_array::try_transition(double abort_rate, uint waiting,
                               uint aborts_for_no_stock) -> void {
-  auto is_splitted = this->is_splitted.GetReadOnly();
+  try {
+    WSTM::Atomically(
+        [ptr = weak_from_this(), waiting, aborts_for_no_stock,
+         abort_rate](WSTM::WAtomic& at) {
+          if (auto value = ptr.lock()) {
+            auto is_splitted = value->is_splitted.Get(at);
 
-  // std::cout << "ar=" << abort_rate;
-  // TODO: add "total ratio of clients" condition
-  if (is_splitted && (waiting > 0 || aborts_for_no_stock > 0)) {
-    try {
-      WSTM::Atomically(
-          [this](WSTM::WAtomic& at) { this->reconcile(at); },
-          WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
-    } catch (...) {
-      // there is no problem if an exception is thrown, this will be tried again
-      // later
-    }
-  } else if (!is_splitted && abort_rate > 0.65) {
-    try {
-      WSTM::Atomically(
-          [this](WSTM::WAtomic& at) {
-            this->split(at, split_operation_addsub);  // there's only one op
-          },
-          WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
-    } catch (...) {
-      // there is no problem if an exception is thrown, this will be tried again
-      // later
-    }
+            // TODO: add "total ratio of clients" condition
+            if (is_splitted && (waiting > 0 || aborts_for_no_stock > 0)) {
+              value->reconcile(at);
+            } else if (!is_splitted && abort_rate > 0.65) {
+              value->split(at, split_operation_addsub);  // there's only one op
+            } else {
+              throw exception();
+            }
+          }
+        },
+        WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // later
   }
 }
 
