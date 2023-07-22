@@ -15,15 +15,16 @@
 
 #include "customer.h"
 #include "reservation.h"
+#include "splittable/mrv/mrv_flex_vector.hpp"
+#include "splittable/pr/pr_array.hpp"
+#include "splittable/single/single.hpp"
 #include "utility.h"
 
+template <typename S>
 struct manager_t {
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>
-      carTable;
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>
-      roomTable;
-  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<splittable_type>>>>
-      flightTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<S>>>> carTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<S>>>> roomTable;
+  WSTM::WVar<immer::map<long, std::shared_ptr<reservation_t<S>>>> flightTable;
   WSTM::WVar<immer::map<long, std::shared_ptr<customer_t>>> customerTable;
 
   manager_t();
