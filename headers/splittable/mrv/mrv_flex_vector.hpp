@@ -10,6 +10,7 @@
 #include <memory>
 #include <new>
 #include <numeric>
+#include <queue>
 #include <vector>
 
 #include "splittable/mrv/manager.hpp"
@@ -61,6 +62,7 @@ class mrv_flex_vector : public mrv,
   auto remove_node() -> void;
   auto balance() -> void;
   auto balance_minmax() -> void;
+  auto balance_minmax_with_k() -> void;
   auto balance_random() -> void;
 };
 
