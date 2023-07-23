@@ -19,6 +19,13 @@ manager::manager() {
                              counters.aborts_for_no_stock);
         };
 
+        auto pool = splittable::splittable::get_pool();
+        while (pool == nullptr) {
+          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(1));
+          pool = splittable::splittable::get_pool();
+        }
+
         while (true) {
           std::this_thread::sleep_for(PHASE_INTERVAL);
 
@@ -30,7 +37,7 @@ manager::manager() {
           }
 
           for (auto&& [_, value] : values) {
-            splittable::pool.push_task(task, value);
+            pool->push_task(task, value);
           }
         }
       })
