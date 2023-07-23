@@ -15,6 +15,8 @@ EXE_DIRS  ?= ./apps
 # External dependencies are added as `-isystem` in order to avoid getting 
 # their warnings during compilation. 
 INC_FLAGS := -isystem ./include -I./headers/ 
+# Alternate version to use on the ARM machine.
+# INC_FLAGS := -isystem /usr/include/boost1.78/ -isystem ./include -I./headers/ 
 
 # These 3 variables are only related to the library code (source directory).
 SRCS := $(shell find $(SRC_DIRS) -name *.cpp)
@@ -25,7 +27,7 @@ CPPFLAGS := $(INC_FLAGS)
 # The `-Wno-array-bounds` is needed to surpress warnings from the immer library.
 CPPFLAGS += -Wall -Wextra -Wpedantic -Wno-array-bounds -Wno-interference-size
 CPPFLAGS += -MMD -MP -std=c++20 -march=native -O3 #-Og -g
-CPPFLAGS += -DSPLITTABLE_DEBUG
+CPPFLAGS += #-DSPLITTABLE_DEBUG
 LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -Wl,--end-group
 
 .PHONY: all
