@@ -13,7 +13,7 @@ echo "benchmark,workers,execution time (s),abort rate"
 for type in ${splittable_list[@]}; do
     for client in ${client_list[@]}; do
         for _ in $(seq $runs); do
-            ./build/bin/vacation ${vacation_params[@]} -t${client} -s${type} -p${pool_threads}
+            ./build/bin/vacation ${vacation_params[@]} -t${client} -s${type} -p${num_threads}
         done
     done
 done
