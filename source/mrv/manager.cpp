@@ -8,6 +8,13 @@ manager::manager() {
       [this]() {
         auto task = [](std::shared_ptr<mrv> mrv) { mrv->balance(); };
 
+        auto pool = splittable::splittable::get_pool();
+        while (pool == nullptr) {
+          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(1));
+          pool = splittable::splittable::get_pool();
+        }
+
         while (true) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         BALANCE_INTERVAL);
@@ -20,7 +27,7 @@ manager::manager() {
           }
 
           for (auto&& [_id, value] : values) {
-            splittable::pool.push_task(task, value);
+            pool->push_task(task, value);
           }
         }
       })
@@ -49,6 +56,13 @@ manager::manager() {
           }
         };
 
+        auto pool = splittable::splittable::get_pool();
+        while (pool == nullptr) {
+          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(1));
+          pool = splittable::splittable::get_pool();
+        }
+
         while (true) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         ADJUST_INTERVAL);
@@ -61,7 +75,7 @@ manager::manager() {
           }
 
           for (auto&& [_id, value] : values) {
-            splittable::pool.push_task(task, value);
+            pool->push_task(task, value);
           }
         }
       })

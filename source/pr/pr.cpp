@@ -11,7 +11,10 @@ thread_local uint pr::thread_id;
 uint pr::num_threads;
 
 auto pr::thread_init() -> void { register_thread(); }
-auto pr::global_init(uint num_threads) -> void { set_num_threads(num_threads); }
+auto pr::global_init(uint num_threads, uint num_threads_pool) -> void {
+  set_num_threads(num_threads);
+  splittable::initialise_pool(num_threads_pool);
+}
 
 // should only be called once, at the start of the thread. it is assumed that
 // once a thread is registered it runs until the end

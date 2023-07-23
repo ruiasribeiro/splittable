@@ -114,8 +114,8 @@ static void* threadWait(void* argPtr) {
  * =============================================================================
  */
 template <typename S>
-void thread_startup(long numThread) {
-  S::global_init(numThread);
+void thread_startup(long numThread, size_t numPool) {
+  S::global_init(numThread, numPool);
 
   file_numThread = numThread;
   file_doShutdown = false;

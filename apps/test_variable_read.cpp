@@ -36,11 +36,11 @@ double waste_time(size_t iterations) {
 
 template <typename S>
 result_t run(size_t workers, size_t read_percentage, seconds duration,
-             size_t time_padding) {
+             size_t time_padding, size_t num_threads_pool) {
   auto total_reads = std::atomic_uint(0);
 
   auto value = S::new_instance(0);
-  S::global_init(workers);
+  S::global_init(workers, num_threads_pool);
 
   auto threads = std::make_unique<std::thread[]>(workers);
 
@@ -103,9 +103,10 @@ result_t run(size_t workers, size_t read_percentage, seconds duration,
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 6) {
-    std::cerr << "requires 4 positional arguments: benchmark, number of "
-                 "workers, read percentage (%), execution time (s), padding\n";
+  if (argc < 7) {
+    std::cerr << "requires 6 positional arguments: benchmark, number of "
+                 "workers, read percentage (%), execution time (s), padding, "
+                 "number of pool workers\n";
     return 1;
   }
 
@@ -151,9 +152,17 @@ int main(int argc, char const* argv[]) {
 
   size_t padding;
   try {
-    padding = std::stoul(argv[4]);
+    padding = std::stoul(argv[5]);
   } catch (...) {
-    std::cerr << "could not convert \"" << argv[4] << "\" to an integer\n";
+    std::cerr << "could not convert \"" << argv[5] << "\" to an integer\n";
+    return 1;
+  }
+
+  size_t pool_workers;
+  try {
+    pool_workers = std::stoul(argv[6]);
+  } catch (...) {
+    std::cerr << "could not convert \"" << argv[6] << "\" to an integer\n";
     return 1;
   }
 
@@ -162,13 +171,16 @@ int main(int argc, char const* argv[]) {
   result_t result;
   if (benchmark == "single") {
     using splittable_t = splittable::single::single;
-    result = run<splittable_t>(workers, read_percentage, duration, padding);
+    result = run<splittable_t>(workers, read_percentage, duration, padding,
+                               pool_workers);
   } else if (benchmark == "mrv-flex-vector") {
     using splittable_t = splittable::mrv::mrv_flex_vector;
-    result = run<splittable_t>(workers, read_percentage, duration, padding);
+    result = run<splittable_t>(workers, read_percentage, duration, padding,
+                               pool_workers);
   } else if (benchmark == "pr-array") {
     using splittable_t = splittable::pr::pr_array;
-    result = run<splittable_t>(workers, read_percentage, duration, padding);
+    result = run<splittable_t>(workers, read_percentage, duration, padding,
+                               pool_workers);
   } else {
     std::cerr << "could not find a benchmark with name \"" << benchmark
               << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";

@@ -20,6 +20,7 @@
 enum param_types {
   PARAM_CLIENTS = (unsigned char)'t',
   PARAM_NUMBER = (unsigned char)'n',
+  PARAM_POOL = (unsigned char)'p',
   PARAM_QUERIES = (unsigned char)'q',
   PARAM_RELATIONS = (unsigned char)'r',
   PARAM_SPLITTABLE_TYPE = (unsigned char)'s',
@@ -29,6 +30,7 @@ enum param_types {
 
 #define PARAM_DEFAULT_CLIENTS (1)
 #define PARAM_DEFAULT_NUMBER (4)
+#define PARAM_DEFAULT_POOL (1)
 #define PARAM_DEFAULT_QUERIES (60)
 #define PARAM_DEFAULT_RELATIONS (1 << 20)
 #define PARAM_DEFAULT_SPLITTABLE_TYPE "mrv-flex-vector"
@@ -51,6 +53,8 @@ static void displayUsage(const char* appName) {
          PARAM_DEFAULT_CLIENTS);
   printf("    n <UINT>   [n]umber of user queries/transaction  (%i)\n",
          PARAM_DEFAULT_NUMBER);
+  printf("    p <UINT>   Number of [p]ool workers              (%i)\n",
+         PARAM_DEFAULT_POOL);
   printf("    q <UINT>   Percentage of relations [q]ueried     (%i)\n",
          PARAM_DEFAULT_QUERIES);
   printf("    r <UINT>   Number of possible [r]elations        (%i)\n",
@@ -71,6 +75,7 @@ static void displayUsage(const char* appName) {
 static void setDefaultParams() {
   global_params[PARAM_CLIENTS] = PARAM_DEFAULT_CLIENTS;
   global_params[PARAM_NUMBER] = PARAM_DEFAULT_NUMBER;
+  global_params[PARAM_POOL] = PARAM_DEFAULT_POOL;
   global_params[PARAM_QUERIES] = PARAM_DEFAULT_QUERIES;
   global_params[PARAM_RELATIONS] = PARAM_DEFAULT_RELATIONS;
   global_splittable_type = PARAM_DEFAULT_SPLITTABLE_TYPE;
@@ -90,10 +95,11 @@ static void parseArgs(long argc, char* const argv[]) {
 
   setDefaultParams();
 
-  while ((opt = getopt(argc, argv, "t:n:q:r:s:T:u:L")) != -1) {
+  while ((opt = getopt(argc, argv, "t:n:p:q:r:s:T:u:L")) != -1) {
     switch (opt) {
       case 'T':
       case 'n':
+      case 'p':
       case 'q':
       case 'r':
       case 't':
@@ -374,7 +380,8 @@ int templated_main() {
   clients = initializeClients(managerPtr);
   assert(clients != NULL);
   long numThread = global_params[PARAM_CLIENTS];
-  thread_startup<S>(numThread);
+  long numPool = global_params[PARAM_POOL];
+  thread_startup<S>(numThread, numPool);
 
   /* Run transactions */
   // printf("Running clients... ");
