@@ -60,6 +60,18 @@ chart = sns.lineplot(
 
 chart.get_legend().set_title(None)
 
+def custom_tick(value: int) -> str:
+    match value:
+        case v if v >= 1_000_000:
+            return "{:,.0f}M".format(v / 1_000_000)
+        case v if v >= 1_000:
+            return "{:,.0f}k".format(v / 1_000)
+        case other:
+            return "{:,.0f}".format(other)
+
+xlabels = [custom_tick(x) for x in chart.get_xticks()]
+chart.set_xticklabels(xlabels)
+
 plt.xlabel("Padding")
 plt.ylabel("Abort rate")
 
