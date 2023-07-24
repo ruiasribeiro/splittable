@@ -38,6 +38,7 @@ template <typename S>
 result_t run(size_t workers, size_t read_percentage, seconds duration,
              size_t time_padding, size_t num_threads_pool) {
   auto total_reads = std::atomic_uint(0);
+  auto total_writes = std::atomic_uint(0);
 
   auto value = S::new_instance(0);
   S::global_init(workers, num_threads_pool);
@@ -53,6 +54,7 @@ result_t run(size_t workers, size_t read_percentage, seconds duration,
       double val{};
       uint val2{};
       size_t reads = 0;
+      size_t writes = 0;
 
       bar.wait();
 
@@ -60,29 +62,40 @@ result_t run(size_t workers, size_t read_percentage, seconds duration,
       auto start = now();
 
       while ((now() - start) < duration) {
-        auto does_read =
-            splittable::utils::random_index(1, 100) <= read_percentage;
+        auto random_pick = splittable::utils::random_index(1, 100);
 
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(time_padding);
+        try {
+          WSTM::Atomically([&](WSTM::WAtomic& at) {
+            val = waste_time(time_padding);
 
-          if (does_read) {
-            val2 = value->read(at);
+            if (random_pick <= read_percentage) {
+              val2 = value->read(at);
+            } else if (static_cast<double>(random_pick) <=
+                       (static_cast<double>(read_percentage) / 2) + 50) {
+              value->sub(at, 1);
+            } else {
+              value->add(at, 1);
+            }
+
+            val = waste_time(time_padding);
+          });
+
+          if (random_pick <= read_percentage) {
+            reads++;
           } else {
-            value->add(at, 1);
+            writes++;
           }
-
-          val = waste_time(time_padding);
-        });
-
-        if (does_read) {
-          reads++;
+        } catch (...) {
+          // this catch block should only be reached when a sub cannot perform
+          // due to no stock, which isn't a problem; we just don't count that
+          // write
         }
       }
 
       volatile auto avoid_optimisation __attribute__((unused)) = val;
       volatile auto avoid_optimisation2 __attribute__((unused)) = val2;
       total_reads.fetch_add(reads);
+      total_writes.fetch_add(writes);
     });
   }
 
@@ -92,14 +105,13 @@ result_t run(size_t workers, size_t read_percentage, seconds duration,
     threads[i].join();
   }
 
-  auto writes =
-      WSTM::Atomically([&](WSTM::WAtomic& at) { return value->read(at); });
   auto stats = splittable::splittable::get_global_stats();
   auto abort_rate =
       static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
 
-  return {
-      .writes = writes, .reads = total_reads.load(), .abort_rate = abort_rate};
+  return {.writes = total_writes.load(),
+          .reads = total_reads.load(),
+          .abort_rate = abort_rate};
 }
 
 int main(int argc, char const* argv[]) {
