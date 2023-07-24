@@ -249,7 +249,7 @@ auto constexpr calculate_k(size_t num_records) -> size_t {
     return 1;
   }
 
-  if (num_records == 4) {
+  if (num_records <= 16) {
     return 2;
   }
 
