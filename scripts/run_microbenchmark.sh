@@ -15,7 +15,7 @@ for type in ${type_list[@]}; do
         for read_per in ${read_per_list[@]}; do
             for padding in ${padding_list[@]}; do
                 for _ in $(seq $runs); do
-                    ./build/bin/microbenchmark $type $workers $read_per $seconds $padding $pool_threads
+                    ./build/bin/microbenchmark -b ${type} -w ${workers} -r ${read_per} -d ${seconds} -p ${padding} -t ${pool_threads}
                 done
             done
         done
