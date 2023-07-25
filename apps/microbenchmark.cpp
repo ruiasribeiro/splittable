@@ -136,25 +136,25 @@ int main(int argc, char const* argv[]) {
   description.add_options()
     ("help,h", "produce help message")
     ("benchmark,b", 
-      po::value<std::string>(), 
+      po::value<std::string>()->required(), 
       "set splittable type")
     ("num_workers,w", 
-      po::value<size_t>(), 
+      po::value<size_t>()->required(), 
       "set number of clients for the benchmark")
     ("read_percentage,r", 
-      po::value<size_t>(),  
+      po::value<size_t>()->required(),  
       "set percentage of read operations")
     ("duration,d", 
-      po::value<size_t>(),  
+      po::value<size_t>()->required(),  
       "set benchmark duration (in seconds)")
     ("time_padding,p", 
-      po::value<size_t>(),  
+      po::value<size_t>()->required(),  
       "set padding for the transactions")
     ("num_threads_pool,t", 
-      po::value<size_t>(),  
+      po::value<size_t>()->required(),  
       "set number of threads for the splittable pool")
     ("scale,s", 
-      po::value<size_t>()->default_value(1), 
+      po::value<size_t>()->required(), 
       "set scale for writes (how big should adds be per sub)");
   // clang-format on
 

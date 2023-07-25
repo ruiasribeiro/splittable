@@ -195,8 +195,7 @@ auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
       break;
     }
     default:
-      // TODO: unexpected case, deal with it
-      break;
+      assert(false);
   }
 
   this->is_splitted.Set(true, at);
@@ -225,8 +224,7 @@ auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
       break;
     }
     default:
-      // TODO: unexpected case, deal with it
-      break;
+      assert(false);
   }
 
   this->is_splitted.Set(false, at);

@@ -203,14 +203,16 @@ auto mrv_flex_vector::remove_node() -> void {
 #endif
 }
 
-auto mrv_flex_vector::balance() -> void { this->balance_minmax_with_k(); }
+auto mrv_flex_vector::balance() -> void { this->balance_minmax(); }
 
 auto mrv_flex_vector::balance_minmax() -> void {
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
       auto chunks = *std::atomic_load(&this->chunks).get();
       auto size = chunks.size();
 
       if (size < 2) {
-    return;
+        throw exception();
       }
 
       auto min_i = 0u;
