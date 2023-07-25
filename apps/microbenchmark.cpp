@@ -20,6 +20,8 @@ using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
+const seconds warmup(5);
+
 struct result_t {
   uint writes;
   uint reads;
@@ -71,6 +73,30 @@ result_t run(options_t options) {
 
       auto now = steady_clock::now;
       auto start = now();
+
+      while ((now() - start) < warmup) {
+        auto random_pick = splittable::utils::random_index(1, 100);
+
+        try {
+          WSTM::Atomically([&](WSTM::WAtomic& at) {
+            val = waste_time(options.time_padding);
+
+            if (random_pick <= options.read_percentage) {
+              val2 = value->read(at);
+            } else if (splittable::utils::random_index(0, options.scale) == 0) {
+              value->add(at, options.scale);
+            } else {
+              value->sub(at, 1);
+            }
+
+            val = waste_time(options.time_padding);
+          });
+        } catch (...) {
+        }
+      }
+
+      splittable::splittable::reset_global_stats();
+      start = now();
 
       while ((now() - start) < options.duration) {
         auto random_pick = splittable::utils::random_index(1, 100);

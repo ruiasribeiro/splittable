@@ -22,6 +22,11 @@ auto splittable::get_pool() -> std::shared_ptr<BS::thread_pool> {
   return pool;
 }
 
+auto splittable::reset_global_stats() -> void {
+  total_commits.store(0);
+  total_aborts.store(0);
+}
+
 auto splittable::get_global_stats() -> status {
   return status{.aborts = total_aborts.load(), .commits = total_commits.load()};
 }
