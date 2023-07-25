@@ -51,6 +51,8 @@ class mrv_flex_vector : public mrv,
   auto static new_instance(uint value) -> std::shared_ptr<mrv_flex_vector>;
   auto static delete_instance(std::shared_ptr<mrv_flex_vector>) -> void;
 
+  auto static shutdown() -> void;
+
   auto get_id() -> uint;
 
   auto add_aborts(uint count) -> void;

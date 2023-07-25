@@ -3,9 +3,9 @@
 namespace splittable::mrv {
 
 manager::manager() {
-  std::thread(
+  workers.emplace_back(
       // balance worker
-      [this]() {
+      [this](std::stop_token stop_token) {
         auto task = [](std::shared_ptr<mrv> mrv) { mrv->balance(); };
 
         auto pool = splittable::splittable::get_pool();
@@ -15,7 +15,7 @@ manager::manager() {
           pool = splittable::splittable::get_pool();
         }
 
-        while (true) {
+        while (!stop_token.stop_requested()) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         BALANCE_INTERVAL);
 
@@ -30,12 +30,11 @@ manager::manager() {
             pool->push_task(task, value);
           }
         }
-      })
-      .detach();
+      });
 
-  std::thread(
+  workers.emplace_back(
       // adjust worker
-      [this]() {
+      [this](std::stop_token stop_token) {
         auto task = [](std::shared_ptr<mrv> mrv) {
           auto counters = mrv->fetch_and_reset_status();
 
@@ -63,7 +62,7 @@ manager::manager() {
           pool = splittable::splittable::get_pool();
         }
 
-        while (true) {
+        while (!stop_token.stop_requested()) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         ADJUST_INTERVAL);
 
@@ -78,8 +77,7 @@ manager::manager() {
             pool->push_task(task, value);
           }
         }
-      })
-      .detach();
+      });
 }
 
 manager::~manager() {}
@@ -87,6 +85,10 @@ manager::~manager() {}
 auto manager::get_instance() -> manager& {
   static manager instance;
   return instance;
+}
+
+auto manager::shutdown() -> void {
+  workers.clear();  // shuts the workers down upon destruction
 }
 
 auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {

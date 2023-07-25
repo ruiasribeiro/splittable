@@ -393,6 +393,8 @@ int templated_main() {
   // printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
   // fflush(stdout);
 
+  S::shutdown();
+
   checkTables<S>(managerPtr);
 
   // benchmark,workers,execution time (s),abort rate
@@ -415,7 +417,8 @@ int templated_main() {
 
   thread_shutdown<S>();
 
-  return 0;
+  quick_exit(0);  // allows the program to exit without cleaning its resources
+                  // correctly
 }
 
 int main(int argc, char** argv) {
