@@ -8,6 +8,7 @@
 #include <immer/flex_vector_transient.hpp>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <new>
 #include <numeric>
 #include <queue>
@@ -38,6 +39,10 @@ class mrv_flex_vector : public mrv,
   using chunks_t = immer::flex_vector<std::shared_ptr<chunk_t>>;
   // this pointer is only accessed with atomic instructions
   std::shared_ptr<chunks_t> chunks;
+  // this mutex protects adjust operations (add/remove nodes), so that in cases
+  // multiple threads try to perform them, they do not create consistency
+  // problems
+  std::mutex resizing_mutex;
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later
