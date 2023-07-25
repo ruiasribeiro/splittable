@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 #include "splittable/mrv/mrv_flex_vector.hpp"
@@ -32,6 +33,7 @@ struct options_t {
   seconds duration;
   size_t time_padding;
   size_t num_threads_pool;
+  size_t scale;
 };
 
 double waste_time(size_t iterations) {
@@ -79,12 +81,10 @@ result_t run(options_t options) {
 
             if (random_pick <= options.read_percentage) {
               val2 = value->read(at);
-            } else if (static_cast<double>(random_pick) <=
-                       (static_cast<double>(options.read_percentage) / 2) +
-                           50) {
-              value->sub(at, 1);
+            } else if (splittable::utils::random_index(0, options.scale) == 0) {
+              value->add(at, options.scale);
             } else {
-              value->add(at, 1);
+              value->sub(at, 1);
             }
 
             val = waste_time(options.time_padding);
@@ -133,12 +133,27 @@ int main(int argc, char const* argv[]) {
   // clang-format off
   description.add_options()
     ("help,h", "produce help message")
-    ("benchmark,b", po::value<std::string>(), "set splittable type")
-    ("num_workers,w", po::value<size_t>(), "set number of clients for the benchmark")
-    ("read_percentage,r", po::value<size_t>(), "set percentage of read operations")
-    ("duration,d", po::value<size_t>(), "set benchmark duration (in seconds)")
-    ("time_padding,p", po::value<size_t>(), "set padding for the transactions")
-    ("num_threads_pool,t", po::value<size_t>(), "set number of threads for the splittable pool");
+    ("benchmark,b", 
+      po::value<std::string>(), 
+      "set splittable type")
+    ("num_workers,w", 
+      po::value<size_t>(), 
+      "set number of clients for the benchmark")
+    ("read_percentage,r", 
+      po::value<size_t>(),  
+      "set percentage of read operations")
+    ("duration,d", 
+      po::value<size_t>(),  
+      "set benchmark duration (in seconds)")
+    ("time_padding,p", 
+      po::value<size_t>(),  
+      "set padding for the transactions")
+    ("num_threads_pool,t", 
+      po::value<size_t>(),  
+      "set number of threads for the splittable pool")
+    ("scale,s", 
+      po::value<size_t>()->default_value(1), 
+      "set scale for writes (how big should adds be per sub)");
   // clang-format on
 
   po::variables_map vm;
@@ -151,6 +166,7 @@ int main(int argc, char const* argv[]) {
   options.duration = seconds{vm["duration"].as<size_t>()};
   options.time_padding = vm["time_padding"].as<size_t>();
   options.num_threads_pool = vm["num_threads_pool"].as<size_t>();
+  options.scale = vm["scale"].as<size_t>();
 
   result_t result;
   if (options.benchmark == "single") {
