@@ -49,6 +49,7 @@ class splittable {
   auto static initialise_pool(uint count) -> void;
   auto static get_pool() -> std::shared_ptr<BS::thread_pool>;
   
+  auto static reset_global_stats() -> void;
   auto static get_global_stats() -> status;
 
   auto virtual read(WSTM::WAtomic& at) -> uint = 0;
