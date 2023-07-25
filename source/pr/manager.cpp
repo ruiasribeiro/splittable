@@ -3,9 +3,9 @@
 namespace splittable::pr {
 
 manager::manager() {
-  std::thread(
+  workers.emplace_back(
       // phase worker
-      [this]() {
+      [this](std::stop_token stop_token) {
         auto task = [](std::shared_ptr<pr> pr) {
           auto counters = pr->fetch_and_reset_status();
 
@@ -26,7 +26,7 @@ manager::manager() {
           pool = splittable::splittable::get_pool();
         }
 
-        while (true) {
+        while (!stop_token.stop_requested()) {
           std::this_thread::sleep_for(PHASE_INTERVAL);
 
           values_type values;
@@ -40,8 +40,7 @@ manager::manager() {
             pool->push_task(task, value);
           }
         }
-      })
-      .detach();
+      });
 }
 
 manager::~manager() {}
@@ -49,6 +48,10 @@ manager::~manager() {}
 auto manager::get_instance() -> manager& {
   static manager instance;
   return instance;
+}
+
+auto manager::shutdown() -> void {
+  workers.clear();  // shuts the workers down upon destruction
 }
 
 auto manager::register_pr(std::shared_ptr<pr> pr) -> void {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <immer/map.hpp>
 #include <iostream>
 #include <memory>
@@ -21,6 +22,8 @@ class manager {
   values_type values;
   std::mutex values_mutex;  // needed to prevent data races on the assignment
 
+  std::vector<std::jthread> workers;
+
   // the constructor is private to make this class a singleton
   manager();
   ~manager();
@@ -31,6 +34,7 @@ class manager {
   manager& operator=(manager const&) = delete;
 
   auto static get_instance() -> manager&;
+  auto shutdown() -> void;
 
   auto register_mrv(std::shared_ptr<mrv> mrv) -> void;
   auto deregister_mrv(std::shared_ptr<mrv> mrv) -> void;

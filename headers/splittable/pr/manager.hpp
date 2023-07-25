@@ -20,6 +20,8 @@ class manager {
   values_type values;
   std::mutex values_mutex;  // needed to prevent data races on the assignment
 
+  std::vector<std::jthread> workers;
+
   // the constructor is private to make this class a singleton
   manager();
   ~manager();
@@ -30,6 +32,7 @@ class manager {
   manager& operator=(manager const&) = delete;
 
   auto static get_instance() -> manager&;
+  auto shutdown() -> void;
 
   auto register_pr(std::shared_ptr<pr> pr) -> void;
   auto deregister_pr(std::shared_ptr<pr> pr) -> void;

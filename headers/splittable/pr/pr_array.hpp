@@ -55,6 +55,8 @@ class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
   auto static new_instance(uint value) -> std::shared_ptr<pr_array>;
   auto static delete_instance(std::shared_ptr<pr_array>) -> void;
 
+  auto static shutdown() -> void;
+
   auto get_id() -> uint;
 
   auto add_aborts(uint count) -> void;
