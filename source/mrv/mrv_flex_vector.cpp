@@ -123,27 +123,34 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
 }
 
 auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
-  auto chunks = *std::atomic_load(&this->chunks).get();
-  auto size = chunks.size();
+  {
+    std::unique_lock lock(this->resizing_mutex, std::defer_lock);
 
-  // TODO: this is not exactly like the original impl, revise later
-  if (size >= MAX_NODES) {
-    return;
+    if (lock.try_lock()) {
+      auto chunks = *std::atomic_load(&this->chunks).get();
+      auto size = chunks.size();
+
+      // TODO: this is not exactly like the original impl, revise later
+      if (size >= MAX_NODES) {
+        return;
+      }
+
+      auto to_add = std::min((size_t)std::lround(1 + size * abort_rate),
+                             MAX_NODES - size);
+
+      if (to_add < 1) {
+        return;
+      }
+
+      auto t = chunks.transient();
+      for (auto i = 0u; i < to_add; ++i) {
+        t.push_back(std::make_shared<chunk_t>(0u));
+      }
+
+      std::atomic_store(&this->chunks,
+                        std::make_shared<chunks_t>(t.persistent()));
+    }
   }
-
-  auto to_add =
-      std::min((size_t)std::lround(1 + size * abort_rate), MAX_NODES - size);
-
-  if (to_add < 1) {
-    return;
-  }
-
-  auto t = chunks.transient();
-  for (auto i = 0u; i < to_add; ++i) {
-    t.push_back(std::make_shared<chunk_t>(0u));
-  }
-
-  std::atomic_store(&this->chunks, std::make_shared<chunks_t>(t.persistent()));
 
 #ifdef SPLITTABLE_DEBUG
   auto new_size = size + to_add;
@@ -153,33 +160,41 @@ auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
 }
 
 auto mrv_flex_vector::remove_node() -> void {
-  auto chunks = *std::atomic_load(&this->chunks).get();
-  auto size = chunks.size();
+  {
+    std::unique_lock lock(this->resizing_mutex, std::defer_lock);
 
-  // TODO: check if removing does not go below min nodes
-  if (size < 2) {
-    return;
+    if (lock.try_lock()) {
+      auto chunks = *std::atomic_load(&this->chunks).get();
+      auto size = chunks.size();
+
+      // TODO: check if removing does not go below min nodes
+      if (size < 2) {
+        return;
+      }
+
+      auto last_chunk = chunks[size - 1];
+      auto absorber = chunks[utils::random_index(0, size - 2)];
+      auto new_chunks = std::make_shared<chunks_t>(chunks.take(size - 1));
+
+      WSTM::Atomically(
+          [&](WSTM::WAtomic& at) {
+            auto last_chunk_value = last_chunk->Get(at);
+
+            // this ensures that other threads reading/writing to the last_chunk
+            // will conflict
+            last_chunk->Set(0, at);
+
+            if (last_chunk_value > 0) {
+              absorber->Set(absorber->Get(at) + last_chunk_value, at);
+            }
+
+            std::atomic_store(&this->chunks, new_chunks);
+          },
+          // this should make the transaction irrevocable; if it doesn't,
+          // there's no problem anyway
+          WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
+    }
   }
-
-  WSTM::Atomically(
-      [&](WSTM::WAtomic& at) {
-        auto last_chunk = chunks[size - 1];
-        auto last_chunk_value = last_chunk->Get(at);
-
-        // this ensures that other threads reading/writing to the last_chunk
-        // will conflict
-        last_chunk->Set(0, at);
-
-        if (last_chunk_value > 0) {
-          auto absorber = chunks[utils::random_index(0, size - 2)];
-          absorber->Set(absorber->Get(at) + last_chunk_value, at);
-        }
-
-        std::atomic_store(&this->chunks,
-                          std::make_shared<chunks_t>(chunks.take(size - 1)));
-      },
-      // this makes the transaction irrevocable
-      WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
 
 #ifdef SPLITTABLE_DEBUG
   std::cout << "decreased id=" << this->id << " by one\n";
@@ -189,15 +204,13 @@ auto mrv_flex_vector::remove_node() -> void {
 auto mrv_flex_vector::balance() -> void { this->balance_minmax_with_k(); }
 
 auto mrv_flex_vector::balance_minmax() -> void {
-  auto chunks = *std::atomic_load(&this->chunks).get();
-  auto size = chunks.size();
+      auto chunks = *std::atomic_load(&this->chunks).get();
+      auto size = chunks.size();
 
-  if (size < 2) {
+      if (size < 2) {
     return;
-  }
+      }
 
-  try {
-    WSTM::Atomically([&](WSTM::WAtomic& at) {
       auto min_i = 0u;
       auto min_v = UINT_MAX;
       auto max_i = 0u;
