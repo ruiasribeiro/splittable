@@ -35,7 +35,6 @@ class manager {
   manager& operator=(manager const&) = delete;
 
   auto static get_instance() -> manager&;
-  auto shutdown() -> void;
 
   auto register_mrv(std::shared_ptr<mrv> mrv) -> void;
   auto deregister_mrv(std::shared_ptr<mrv> mrv) -> void;

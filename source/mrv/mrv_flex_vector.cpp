@@ -21,8 +21,6 @@ auto mrv_flex_vector::delete_instance(std::shared_ptr<mrv_flex_vector> obj)
   manager::get_instance().deregister_mrv(obj);
 }
 
-auto mrv_flex_vector::shutdown() -> void { manager::get_instance().shutdown(); }
-
 auto mrv_flex_vector::get_id() -> uint { return this->id; }
 
 auto mrv_flex_vector::add_aborts(uint count) -> void {

@@ -16,7 +16,6 @@ class single : public splittable {
 
   auto static thread_init() -> void;
   auto static global_init(uint num_threads) -> void;
-  auto static shutdown() -> void;
 
   auto static new_instance(uint value) -> std::shared_ptr<single>;
   auto static delete_instance(std::shared_ptr<single>) -> void;

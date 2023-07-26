@@ -18,8 +18,6 @@ auto pr_array::delete_instance(std::shared_ptr<pr_array> obj) -> void {
   manager::get_instance().deregister_pr(obj);
 }
 
-auto pr_array::shutdown() -> void { manager::get_instance().shutdown(); }
-
 auto pr_array::get_id() -> uint { return this->id; }
 
 auto pr_array::add_aborts(uint count) -> void {

@@ -386,8 +386,6 @@ int templated_main() {
   // printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
   // fflush(stdout);
 
-  S::shutdown();
-
   checkTables<S>(managerPtr);
 
   // benchmark,workers,execution time (s),abort rate

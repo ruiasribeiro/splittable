@@ -33,7 +33,6 @@ class manager {
   manager& operator=(manager const&) = delete;
 
   auto static get_instance() -> manager&;
-  auto shutdown() -> void;
 
   auto register_pr(std::shared_ptr<pr> pr) -> void;
   auto deregister_pr(std::shared_ptr<pr> pr) -> void;

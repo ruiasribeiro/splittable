@@ -70,10 +70,6 @@ auto manager::get_instance() -> manager& {
   return instance;
 }
 
-auto manager::shutdown() -> void {
-  workers.clear();  // shuts the workers down upon destruction
-}
-
 auto manager::register_mrv(std::shared_ptr<mrv> mrv) -> void {
 #ifdef SPLITTABLE_DEBUG
   std::cout << "registering " << mrv->get_id() << "\n";
