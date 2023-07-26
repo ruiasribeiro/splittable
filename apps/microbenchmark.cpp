@@ -140,8 +140,6 @@ result_t run(options_t options) {
     threads[i].join();
   }
 
-  S::shutdown();
-
   auto stats = splittable::splittable::get_global_stats();
   auto abort_rate =
       static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
