@@ -6,15 +6,6 @@ manager::manager() {
   workers.emplace_back(
       // balance worker
       [this](std::stop_token stop_token) {
-        auto task = [](std::shared_ptr<mrv> mrv) { mrv->balance(); };
-
-        auto pool = splittable::splittable::get_pool();
-        while (pool == nullptr) {
-          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
-                                        std::chrono::seconds(1));
-          pool = splittable::splittable::get_pool();
-        }
-
         while (!stop_token.stop_requested()) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         BALANCE_INTERVAL);
@@ -26,42 +17,16 @@ manager::manager() {
             values = this->values;
           }
 
-          for (auto&& [_id, value] : values) {
-            pool->push_task(task, value);
-          }
+          std::for_each(std::execution::par_unseq, values.begin(), values.end(),
+                        [](std::pair<uint, std::shared_ptr<mrv>> pair) {
+                          pair.second->balance();
+                        });
         }
       });
 
   workers.emplace_back(
       // adjust worker
       [this](std::stop_token stop_token) {
-        auto task = [](std::shared_ptr<mrv> mrv) {
-          auto counters = mrv->fetch_and_reset_status();
-
-          auto commits = counters.commits;
-          auto aborts = counters.aborts;
-
-          if (commits == 0u) {
-            mrv->remove_node();
-            return;
-          }
-
-          auto abort_rate = (double)aborts / (double)(aborts + commits);
-
-          if (abort_rate < MIN_ABORT_RATE) {
-            mrv->remove_node();
-          } else if (abort_rate > MAX_ABORT_RATE) {
-            mrv->add_nodes(abort_rate);
-          }
-        };
-
-        auto pool = splittable::splittable::get_pool();
-        while (pool == nullptr) {
-          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
-                                        std::chrono::seconds(1));
-          pool = splittable::splittable::get_pool();
-        }
-
         while (!stop_token.stop_requested()) {
           std::this_thread::sleep_until(std::chrono::steady_clock::now() +
                                         ADJUST_INTERVAL);
@@ -73,9 +38,27 @@ manager::manager() {
             values = this->values;
           }
 
-          for (auto&& [_id, value] : values) {
-            pool->push_task(task, value);
-          }
+          std::for_each(std::execution::par_unseq, values.begin(), values.end(),
+                        [](std::pair<uint, std::shared_ptr<mrv>> pair) {
+                          auto counters = pair.second->fetch_and_reset_status();
+
+                          auto commits = counters.commits;
+                          auto aborts = counters.aborts;
+
+                          if (commits == 0u) {
+                            pair.second->remove_node();
+                            return;
+                          }
+
+                          auto abort_rate =
+                              (double)aborts / (double)(aborts + commits);
+
+                          if (abort_rate < MIN_ABORT_RATE) {
+                            pair.second->remove_node();
+                          } else if (abort_rate > MAX_ABORT_RATE) {
+                            pair.second->add_nodes(abort_rate);
+                          }
+                        });
         }
       });
 }

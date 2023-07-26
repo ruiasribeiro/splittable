@@ -25,7 +25,7 @@ class pr : public splittable {
 
  public:
   auto static thread_init() -> void;
-  auto static global_init(uint num_threads, uint num_threads_pool) -> void;
+  auto static global_init(uint num_threads) -> void;
 
   auto virtual get_id() -> uint = 0;
 
