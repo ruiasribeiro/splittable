@@ -54,15 +54,18 @@ auto pr_array::fetch_and_reset_status() -> status {
           .waiting = waiting};
 }
 
-auto pr_array::read(WSTM::WAtomic& at) -> uint {
-  setup_transaction_tracking(at);
-
+auto pr_array::setup_status_tracking(WSTM::WAtomic& at) -> void {
   at.OnFail([this]() { this->add_aborts(1); });
   at.After([ptr = weak_from_this()]() {
     if (auto value = ptr.lock()) {
       value->add_commits(1u);
     }
   });
+}
+
+auto pr_array::read(WSTM::WAtomic& at) -> uint {
+  setup_transaction_tracking(at);
+  setup_status_tracking(at);
 
   if (this->is_splitted.Get(at)) {
     this->add_waiting(1);
@@ -74,23 +77,11 @@ auto pr_array::read(WSTM::WAtomic& at) -> uint {
 
 auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
   setup_transaction_tracking(at);
-
-  at.OnFail([this]() { this->add_aborts(1); });
-  at.After([ptr = weak_from_this()]() {
-    if (auto value = ptr.lock()) {
-      value->add_commits(1u);
-    }
-  });
+  setup_status_tracking(at);
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
-
-    if (splitted->op != split_operation_addsub) {
-      this->add_waiting(1);
-      WSTM::Retry(at);
-    }
-
-    auto chunk = &splitted->chunks[this->thread_id];
+    auto chunk = &splitted->at(this->thread_id);
     auto current_chunk = chunk->Get(at);
     chunk->Set(current_chunk + to_add, at);
   } else {
@@ -101,23 +92,11 @@ auto pr_array::add(WSTM::WAtomic& at, uint to_add) -> void {
 
 auto pr_array::sub(WSTM::WAtomic& at, uint to_sub) -> void {
   setup_transaction_tracking(at);
-
-  at.OnFail([this]() { this->add_aborts(1); });
-  at.After([ptr = weak_from_this()]() {
-    if (auto value = ptr.lock()) {
-      value->add_commits(1u);
-    }
-  });
+  setup_status_tracking(at);
 
   if (this->is_splitted.Get(at)) {
     auto splitted = this->splitted_value.Get(at);
-
-    if (splitted->op != split_operation_addsub) {
-      this->add_waiting(1);
-      WSTM::Retry(at);
-    }
-
-    auto chunk = &splitted->chunks[this->thread_id];
+    auto chunk = &splitted->at(this->thread_id);
     auto current_chunk = chunk->Get(at);
 
     if (current_chunk < to_sub) {
@@ -153,50 +132,39 @@ auto pr_array::try_transition(double abort_rate, uint waiting,
             if (is_splitted && (waiting > 0 || aborts_for_no_stock > 0)) {
               value->reconcile(at);
             } else if (!is_splitted && abort_rate > 0.65) {
-              value->split(at, split_operation_addsub);  // there's only one op
+              value->split(at);  // there's only one op
             } else {
               throw exception();
             }
           }
         },
-        WSTM::WMaxConflicts(1, WSTM::WConflictResolution::RUN_LOCKED));
+        WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
   } catch (...) {
     // there is no problem if an exception is thrown, this will be tried again
     // later
   }
 }
 
-auto pr_array::split(WSTM::WAtomic& at, split_operation op) -> void {
+auto pr_array::split(WSTM::WAtomic& at) -> void {
   if (this->is_splitted.Get(at)) {
     throw std::exception();
   }
 
-  switch (op) {
-    case split_operation_addsub: {
-      auto new_splitted = std::make_shared<Splitted>();
+  auto new_splitted = std::make_shared<splitted_t>();
 
-      new_splitted->op = op;
+  auto current_value = this->single_value.Get(at);
+  auto chunk_val = current_value / num_threads;
+  auto remainder = current_value % num_threads;
 
-      auto current_value = this->single_value.Get(at);
-      auto chunk_val = current_value / num_threads;
-      auto remainder = current_value % num_threads;
-
-      new_splitted->chunks.reserve(num_threads);
-
-      new_splitted->chunks.emplace_back(chunk_val + remainder);
-      for (auto i = 1u; i < num_threads; ++i) {
-        new_splitted->chunks.emplace_back(chunk_val);
-      }
-
-      this->splitted_value.Set(new_splitted, at);
-
-      break;
-    }
-    default:
-      assert(false);
+  new_splitted->reserve(num_threads);
+  new_splitted->emplace_back(chunk_val + remainder);
+  for (auto i = 1u; i < num_threads; ++i) {
+    new_splitted->emplace_back(chunk_val);
   }
 
+  this->splitted_value.Set(new_splitted, at);
   this->is_splitted.Set(true, at);
+
 #ifdef SPLITTABLE_DEBUG
   at.After([id = this->id]() { std::cout << "splitted id=" << id << "\n"; });
 #endif
@@ -209,23 +177,21 @@ auto pr_array::reconcile(WSTM::WAtomic& at) -> void {
 
   auto splitted = this->splitted_value.Get(at);
 
-  switch (splitted->op) {
-    case split_operation_addsub: {
-      auto new_value = 0u;
+  auto new_value = 0u;
 
-      for (auto i = 0u; i < num_threads; ++i) {
-        new_value += splitted->chunks[i].Get(at);
-      }
+  {
+    // this will improve performance since we are reading a lot of variables in
+    // one go
+    WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
 
-      this->single_value.Set(new_value, at);
-
-      break;
+    for (auto i = 0u; i < num_threads; ++i) {
+      new_value += splitted->at(i).Get(at);
     }
-    default:
-      assert(false);
   }
 
+  this->single_value.Set(new_value, at);
   this->is_splitted.Set(false, at);
+
 #ifdef SPLITTABLE_DEBUG
   at.After(
       [id = this->id]() { std::cout << "reconcillied id=" << id << "\n"; });
