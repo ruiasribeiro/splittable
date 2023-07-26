@@ -24,16 +24,11 @@ class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
     using WSTM::WVar<uint>::WVar;
   };
 
-  struct splitted {
-    // each of the values needs to be a WVar, I think, to allow transactions to
-    // rollback if needed. if they're not WVars, even if each thread only
-    // accesses its chunk, there could be some data inconsistency
-    std::vector<chunk_t> chunks;
-    split_operation op;
-  };
-
-  using Single = uint;
-  using Splitted = splitted;
+  using single_t = uint;
+  // each of the values needs to be a WVar, I think, to allow transactions to
+  // rollback if needed. if they're not WVars, even if each thread only
+  // accesses its chunk, there could be some data inconsistency
+  using splitted_t = std::vector<chunk_t>;
 
   // 16 bits for each of the counters: aborts, aborts_for_no_stock, commits,
   // waiting
@@ -43,10 +38,12 @@ class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
 
   // I would like to use a std::variant here but it doesn't seem to play nicely
   // with WyattSTM
-  WSTM::WVar<Single> single_value;
-  WSTM::WVar<std::shared_ptr<Splitted>> splitted_value;
+  WSTM::WVar<single_t> single_value;
+  WSTM::WVar<std::shared_ptr<splitted_t>> splitted_value;
 
   WSTM::WVar<bool> is_splitted;
+
+  auto setup_status_tracking(WSTM::WAtomic& at) -> void;
 
  public:
   // TODO: this is not private because of make_shared, need to revise that later
@@ -70,7 +67,7 @@ class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
 
   auto try_transition(double abort_rate, uint waiting, uint aborts_for_no_stock)
       -> void;
-  auto split(WSTM::WAtomic& at, split_operation op) -> void;
+  auto split(WSTM::WAtomic& at) -> void;
   auto reconcile(WSTM::WAtomic& at) -> void;
 };
 
