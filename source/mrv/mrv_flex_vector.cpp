@@ -87,10 +87,15 @@ auto mrv_flex_vector::add(WSTM::WAtomic& at, uint value) -> void {
 auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   setup_transaction_tracking(at);
 
-  at.OnFail([this]() {
-    // TODO: get some way of check if the transaction aborted due to no stock or
-    // mere conflict; cannot use a reference to a local bool (as before) since
-    // it goes out of scope when the function ends
+  auto no_stock = std::make_shared<bool>(false);
+
+  at.OnFail([this, no_stock]() {
+    // if this function is called and `no_stock` is true, we know that the
+    // transaction failed due to no stock, so we do not need to increment the
+    // abort counter
+    if (*no_stock.get()) {
+      return;
+    }
     this->add_aborts(1u);
   });
   at.After([this]() { this->add_commits(1u); });
@@ -120,6 +125,7 @@ auto mrv_flex_vector::sub(WSTM::WAtomic& at, uint value) -> void {
   }
 
   if (!success) {
+    *no_stock = true;
     throw exception();
   }
 }
