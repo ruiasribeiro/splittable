@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <execution>
 #include <immer/map.hpp>
 #include <iostream>
 #include <memory>

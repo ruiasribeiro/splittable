@@ -6,26 +6,6 @@ manager::manager() {
   workers.emplace_back(
       // phase worker
       [this](std::stop_token stop_token) {
-        auto task = [](std::shared_ptr<pr> pr) {
-          auto counters = pr->fetch_and_reset_status();
-
-          double abort_rate = 0;
-          if (counters.commits > 0) {
-            abort_rate = (double)counters.aborts /
-                         (double)(counters.aborts + counters.commits);
-          }
-
-          pr->try_transition(abort_rate, counters.waiting,
-                             counters.aborts_for_no_stock);
-        };
-
-        auto pool = splittable::splittable::get_pool();
-        while (pool == nullptr) {
-          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
-                                        std::chrono::seconds(1));
-          pool = splittable::splittable::get_pool();
-        }
-
         while (!stop_token.stop_requested()) {
           std::this_thread::sleep_for(PHASE_INTERVAL);
 
@@ -36,9 +16,20 @@ manager::manager() {
             values = this->values;
           }
 
-          for (auto&& [_, value] : values) {
-            pool->push_task(task, value);
-          }
+          std::for_each(std::execution::par_unseq, values.begin(), values.end(),
+                        [](std::pair<uint, std::shared_ptr<pr>> pair) {
+                          auto counters = pair.second->fetch_and_reset_status();
+
+                          double abort_rate = 0;
+                          if (counters.commits > 0) {
+                            abort_rate =
+                                (double)counters.aborts /
+                                (double)(counters.aborts + counters.commits);
+                          }
+
+                          pair.second->try_transition(abort_rate, counters.waiting,
+                                             counters.aborts_for_no_stock);
+                        });
         }
       });
 }

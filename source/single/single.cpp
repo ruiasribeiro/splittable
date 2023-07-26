@@ -5,9 +5,7 @@ single::single(uint value) : value(value) {}
 
 auto single::thread_init() -> void {}
 
-auto single::global_init(uint, uint num_threads_pool) -> void {
-  splittable::initialise_pool(num_threads_pool);
-}
+auto single::global_init(uint) -> void {}
 
 auto single::shutdown() -> void {}
 

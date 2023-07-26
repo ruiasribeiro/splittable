@@ -2,7 +2,6 @@
 
 #include <wstm/stm.h>
 
-#include <BS_thread_pool.hpp>
 #include <atomic>
 #include <exception>
 #include <memory>
@@ -39,16 +38,10 @@ class splittable {
   static std::atomic_uint64_t total_aborts;
   static std::atomic_uint64_t total_commits;
 
-  static std::shared_ptr<BS::thread_pool> pool;
-
  protected:
-
   auto static setup_transaction_tracking(WSTM::WAtomic& at) -> void;
 
  public:
-  auto static initialise_pool(uint count) -> void;
-  auto static get_pool() -> std::shared_ptr<BS::thread_pool>;
-  
   auto static reset_global_stats() -> void;
   auto static get_global_stats() -> status;
 

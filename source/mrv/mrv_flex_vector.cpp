@@ -157,14 +157,14 @@ auto mrv_flex_vector::add_nodes(double abort_rate) -> void {
 
       std::atomic_store(&this->chunks,
                         std::make_shared<chunks_t>(t.persistent()));
-    }
-  }
 
 #ifdef SPLITTABLE_DEBUG
-  auto new_size = size + to_add;
-  std::cout << "increased id=" << id << " w/abort " << abort_rate
-            << " | new size: " << new_size << "\n";
+      auto new_size = size + to_add;
+      std::cout << "increased id=" << id << " w/abort " << abort_rate
+                << " | new size: " << new_size << "\n";
 #endif
+    }
+  }
 }
 
 auto mrv_flex_vector::remove_node() -> void {
@@ -201,12 +201,12 @@ auto mrv_flex_vector::remove_node() -> void {
           // this should make the transaction irrevocable; if it doesn't,
           // there's no problem anyway
           WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));
-    }
-  }
 
 #ifdef SPLITTABLE_DEBUG
-  std::cout << "decreased id=" << this->id << " by one\n";
+      std::cout << "decreased id=" << this->id << " by one\n";
 #endif
+    }
+  }
 }
 
 auto mrv_flex_vector::balance() -> void { this->balance_minmax(); }

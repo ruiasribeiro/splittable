@@ -34,7 +34,6 @@ struct options_t {
   size_t read_percentage;
   seconds duration;
   size_t time_padding;
-  size_t num_threads_pool;
   size_t scale;
 };
 
@@ -54,7 +53,7 @@ result_t run(options_t options) {
   auto total_writes = std::atomic_uint(0);
 
   auto value = S::new_instance(0);
-  S::global_init(options.num_workers, options.num_threads_pool);
+  S::global_init(options.num_workers);
 
   auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
@@ -176,9 +175,6 @@ int main(int argc, char const* argv[]) {
     ("time_padding,p", 
       po::value<size_t>()->required(),  
       "set padding for the transactions")
-    ("num_threads_pool,t", 
-      po::value<size_t>()->required(),  
-      "set number of threads for the splittable pool")
     ("scale,s", 
       po::value<size_t>()->required(), 
       "set scale for writes (how big should adds be per sub)");
@@ -193,7 +189,6 @@ int main(int argc, char const* argv[]) {
   options.read_percentage = vm["read_percentage"].as<size_t>();
   options.duration = seconds{vm["duration"].as<size_t>()};
   options.time_padding = vm["time_padding"].as<size_t>();
-  options.num_threads_pool = vm["num_threads_pool"].as<size_t>();
   options.scale = vm["scale"].as<size_t>();
 
   result_t result;

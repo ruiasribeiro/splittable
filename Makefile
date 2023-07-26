@@ -28,7 +28,7 @@ CPPFLAGS := $(INC_FLAGS)
 CPPFLAGS += -Wall -Wextra -Wpedantic -Wno-array-bounds -Wno-interference-size
 CPPFLAGS += -MMD -MP -std=c++20 -march=native -O3 #-Og -g
 CPPFLAGS += #-DSPLITTABLE_DEBUG
-LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -lboost_program_options -Wl,--end-group
+LDFLAGS  := $(LD_FLAGS) -L$(LIB_DIR) -Wl,--start-group -lstdc++ -lm -lboost_system -lpthread -lboost_thread -lwstm -lboost_program_options -ltbb -Wl,--end-group
 
 .PHONY: all
 all: $(BINARIES)
