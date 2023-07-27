@@ -18,6 +18,8 @@ using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
+const seconds warmup(5);
+
 struct result_t {
   uint64_t operations;
 };
@@ -55,6 +57,12 @@ result_t run(size_t workers, seconds duration,
 
       auto now = steady_clock::now;
       auto start = now();
+
+      while ((now() - start) < warmup) {
+        val = generate(MIN_RANGE, MAX_RANGE);
+      }
+
+      start = now();
 
       while ((now() - start) < duration) {
         val = generate(MIN_RANGE, MAX_RANGE);

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 type_list=(mt minstd ranlux24)
-worker_list=(1 2 4)
+worker_list=(1 2 4 8 16 32 64 128)
 seconds=60
 runs=1
 

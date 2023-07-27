@@ -1,11 +1,11 @@
 #!/bin/bash
 
 type_list=(immer-wvar immer-aligned-wvar std-wvar std-aligned-wvar)
-worker_list=(8)
+worker_list=(1 2 4 8 16 32 64 128)
 seconds=60
 runs=5
 
-printf "benchmark,workers,execution time (s),writes,throughput (ops/s)\n"
+printf "benchmark,workers,execution time (s),operations,throughput (ops/s)\n"
 
 for type in ${type_list[@]}; do
     for workers in ${worker_list[@]}; do

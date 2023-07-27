@@ -8,6 +8,7 @@
 #include <execution>
 #include <iostream>
 #include <numeric>
+#include <thread>
 #include <utility>
 
 static double f(double x) noexcept {
