@@ -15,6 +15,7 @@
 #include "splittable/single/single.hpp"
 #include "splittable/utils/random.hpp"
 
+using std::chrono::nanoseconds;
 using std::chrono::seconds;
 using std::chrono::steady_clock;
 
@@ -26,6 +27,9 @@ struct result_t {
   uint writes;
   uint reads;
   double abort_rate;
+  nanoseconds avg_adjust_interval;
+  nanoseconds avg_balance_interval;
+  nanoseconds avg_phase_interval;
 };
 
 struct options_t {
@@ -94,7 +98,7 @@ result_t run(options_t options) {
         }
       }
 
-      splittable::splittable::reset_global_stats();
+      S::reset_global_stats();
       start = now();
 
       while ((now() - start) < options.duration) {
@@ -146,7 +150,10 @@ result_t run(options_t options) {
 
   return {.writes = total_writes.load(),
           .reads = total_reads.load(),
-          .abort_rate = abort_rate};
+          .abort_rate = abort_rate,
+          .avg_adjust_interval = value->get_avg_adjust_interval(),
+          .avg_balance_interval = value->get_avg_balance_interval(),
+          .avg_phase_interval = value->get_avg_phase_interval()};
 }
 
 int main(int argc, char const* argv[]) {
@@ -205,14 +212,20 @@ int main(int argc, char const* argv[]) {
     return 1;
   }
 
-  // CSV: benchmark, workers, execution time, read percentage, writes, reads,
-  // write throughput (ops/s), read throughput (ops/s), abort rate
+  // CSV: benchmark, workers, execution time, padding, read percentage, writes,
+  // reads, write throughput (ops/s), read throughput (ops/s), abort rate, avg
+  // adjust interval, avg balance interval, avg phase interval
   std::cout << options.benchmark << "," << options.num_workers << ","
-            << options.duration.count() << "," << options.read_percentage << ","
-            << result.writes << "," << result.reads << ","
-            << result.writes / options.duration.count() << ","
-            << result.reads / options.duration.count() << ","
-            << result.abort_rate << "\n";
+            << options.duration.count() << "," << options.time_padding << ","
+            << options.read_percentage << "," << result.writes << ","
+            << result.reads << ","
+            << static_cast<double>(result.writes) / options.duration.count()
+            << ","
+            << static_cast<double>(result.reads) / options.duration.count()
+            << "," << result.abort_rate << ","
+            << result.avg_adjust_interval.count() / 1000000.0 << ","
+            << result.avg_balance_interval.count() / 1000000.0 << ","
+            << result.avg_phase_interval.count() / 1000000.0 << "\n";
 
   // return 0;
   quick_exit(0);

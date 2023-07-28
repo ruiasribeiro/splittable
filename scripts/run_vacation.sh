@@ -6,9 +6,10 @@ runs=5
 
 # original high contention
 # vacation_params=(-n4 -q60 -u90 -r1048576 -T4194304)
-vacation_params=(-n4 -q60 -u90 -r104857 -T4194304)
+vacation_params=(-n4 -q60 -u90 -r104857 -T419430)
 
-echo "benchmark,workers,execution time (s),abort rate"
+echo "benchmark,workers,execution time (s),abort rate,avg adjust interval (ms), avg balance interval (ms), avg phase interval (ms)"
+
 for type in ${splittable_list[@]}; do
     for client in ${client_list[@]}; do
         for _ in $(seq $runs); do

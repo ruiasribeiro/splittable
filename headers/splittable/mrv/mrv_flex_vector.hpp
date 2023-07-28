@@ -53,6 +53,11 @@ class mrv_flex_vector : public mrv,
 
   auto get_id() -> uint;
 
+  auto static get_avg_adjust_interval() -> std::chrono::nanoseconds;
+  auto static get_avg_balance_interval() -> std::chrono::nanoseconds;
+  auto static get_avg_phase_interval() -> std::chrono::nanoseconds;
+  auto static reset_global_stats() -> void;
+
   auto add_aborts(uint count) -> void;
   auto add_commits(uint count) -> void;
   auto fetch_and_reset_status() -> status;

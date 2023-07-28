@@ -23,6 +23,23 @@ auto mrv_flex_vector::delete_instance(std::shared_ptr<mrv_flex_vector> obj)
 
 auto mrv_flex_vector::get_id() -> uint { return this->id; }
 
+auto mrv_flex_vector::get_avg_adjust_interval() -> std::chrono::nanoseconds {
+  return manager::get_instance().get_avg_adjust_interval();
+}
+
+auto mrv_flex_vector::get_avg_balance_interval() -> std::chrono::nanoseconds {
+  return manager::get_instance().get_avg_balance_interval();
+}
+
+auto mrv_flex_vector::get_avg_phase_interval() -> std::chrono::nanoseconds {
+  return std::chrono::nanoseconds(0);
+}
+
+auto mrv_flex_vector::reset_global_stats() -> void {
+  splittable::reset_global_stats();
+  manager::get_instance().reset_global_stats();
+}
+
 auto mrv_flex_vector::add_aborts(uint count) -> void {
   this->status_counters.fetch_add(count << 16, std::memory_order_relaxed);
 }

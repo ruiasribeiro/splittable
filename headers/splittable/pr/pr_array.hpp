@@ -54,6 +54,11 @@ class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
 
   auto get_id() -> uint;
 
+  auto static get_avg_adjust_interval() -> std::chrono::nanoseconds;
+  auto static get_avg_balance_interval() -> std::chrono::nanoseconds;
+  auto static get_avg_phase_interval() -> std::chrono::nanoseconds;
+  auto static reset_global_stats() -> void;
+
   auto add_aborts(uint count) -> void;
   auto add_aborts_for_no_stock(uint count) -> void;
   auto add_waiting(uint count) -> void;

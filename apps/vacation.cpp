@@ -379,21 +379,29 @@ int templated_main() {
   /* Run transactions */
   // printf("Running clients... ");
   // fflush(stdout);
+  S::reset_global_stats();
   TIMER_READ(start);
   thread_start<S>(client_run<S>, (void*)clients);
   TIMER_READ(stop);
+  auto stats = splittable::splittable::get_global_stats();
+  auto avg_adjust_interval = S::get_avg_adjust_interval();
+  auto avg_balance_interval = S::get_avg_balance_interval();
+  auto avg_phase_interval = S::get_avg_phase_interval();
   // puts("done.");
   // printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
   // fflush(stdout);
 
   checkTables<S>(managerPtr);
 
-  // benchmark,workers,execution time (s),abort rate
-  auto stats = splittable::splittable::get_global_stats();
+  // benchmark, workers, execution time (s), abort rate, avg adjust interval
+  // (ms), avg balance interval (ms), avg phase interval (ms)
   auto abort_rate =
       static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
   std::cout << global_splittable_type << "," << numThread << ","
-            << TIMER_DIFF_SECONDS(start, stop) << "," << abort_rate << "\n";
+            << TIMER_DIFF_SECONDS(start, stop) << "," << abort_rate << ","
+            << avg_adjust_interval.count() / 1000000.0 << ","
+            << avg_balance_interval.count() / 1000000.0 << ","
+            << avg_phase_interval.count() / 1000000.0 << "\n";
 
   /* Clean up */
   // printf("Deallocating memory... ");

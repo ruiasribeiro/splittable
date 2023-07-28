@@ -8,7 +8,7 @@ seconds=5
 runs=5
 scale=1000
 
-printf "benchmark,workers,execution time (s),read percentage,writes,reads,write throughput (ops/s),read throughput (ops/s),abort rate\n"
+printf "benchmark,workers,execution time (s),read percentage,writes,reads,write throughput (ops/s),read throughput (ops/s),abort rate,avg adjust interval (ms), avg balance interval (ms), avg phase interval (ms)\n"
 
 for type in ${type_list[@]}; do
     for workers in ${worker_list[@]}; do

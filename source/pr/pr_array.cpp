@@ -20,6 +20,23 @@ auto pr_array::delete_instance(std::shared_ptr<pr_array> obj) -> void {
 
 auto pr_array::get_id() -> uint { return this->id; }
 
+auto pr_array::get_avg_adjust_interval() -> std::chrono::nanoseconds {
+  return std::chrono::nanoseconds(0);
+}
+
+auto pr_array::get_avg_balance_interval() -> std::chrono::nanoseconds {
+  return std::chrono::nanoseconds(0);
+}
+
+auto pr_array::get_avg_phase_interval() -> std::chrono::nanoseconds {
+  return manager::get_instance().get_avg_phase_interval();
+}
+
+auto pr_array::reset_global_stats() -> void {
+  splittable::reset_global_stats();
+  manager::get_instance().reset_global_stats();
+}
+
 auto pr_array::add_aborts(uint count) -> void {
   this->status_counters.fetch_add(((ulong)count) << 48,
                                   std::memory_order_relaxed);

@@ -2,7 +2,11 @@
 
 namespace splittable::mrv {
 
-manager::manager() {
+manager::manager()
+    : total_adjust_time(0),
+      adjust_iterations(0),
+      total_balance_time(0),
+      balance_iterations(0) {
   workers.emplace_back(
       // balance worker
       [this](std::stop_token stop_token) {
@@ -17,10 +21,21 @@ manager::manager() {
             values = this->values;
           }
 
+          auto start = std::chrono::steady_clock::now();
+
           std::for_each(std::execution::par_unseq, values.begin(), values.end(),
                         [](std::pair<uint, std::shared_ptr<mrv>> pair) {
                           pair.second->balance();
                         });
+
+          auto end = std::chrono::steady_clock::now();
+
+          {
+            std::lock_guard<std::mutex> lock(this->balance_time_mutex);
+
+            this->total_balance_time += end - start;
+            ++this->balance_iterations;
+          }
         }
       });
 
@@ -37,6 +52,8 @@ manager::manager() {
             std::lock_guard<std::mutex> lock(this->values_mutex);
             values = this->values;
           }
+
+          auto start = std::chrono::steady_clock::now();
 
           std::for_each(std::execution::par_unseq, values.begin(), values.end(),
                         [](std::pair<uint, std::shared_ptr<mrv>> pair) {
@@ -59,6 +76,15 @@ manager::manager() {
                             pair.second->add_nodes(abort_rate);
                           }
                         });
+
+          auto end = std::chrono::steady_clock::now();
+
+          {
+            std::lock_guard<std::mutex> lock(this->adjust_time_mutex);
+
+            this->total_adjust_time += end - start;
+            ++this->adjust_iterations;
+          }
         }
       });
 }
@@ -95,6 +121,34 @@ auto manager::deregister_mrv(std::shared_ptr<mrv> mrv) -> void {
     values = this->values;
     values = values.erase(mrv->get_id());
     this->values = values;
+  }
+}
+
+auto manager::get_avg_adjust_interval() -> std::chrono::nanoseconds {
+  {
+    std::lock_guard<std::mutex> lock(this->adjust_time_mutex);
+
+    return this->total_adjust_time / adjust_iterations;
+  }
+}
+
+auto manager::get_avg_balance_interval() -> std::chrono::nanoseconds {
+  {
+    std::lock_guard<std::mutex> lock(this->balance_time_mutex);
+
+    return this->total_balance_time / balance_iterations;
+  }
+}
+
+auto manager::reset_global_stats() -> void {
+  {
+    std::scoped_lock lock(this->adjust_time_mutex, this->balance_time_mutex);
+
+    this->total_adjust_time = std::chrono::nanoseconds{0};
+    this->adjust_iterations = 0;
+
+    this->total_balance_time = std::chrono::nanoseconds{0};
+    this->balance_iterations = 0;
   }
 }
 

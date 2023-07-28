@@ -2,7 +2,7 @@
 
 namespace splittable::pr {
 
-manager::manager() {
+manager::manager() : total_phase_time(0), phase_iterations(0) {
   workers.emplace_back(
       // phase worker
       [this](std::stop_token stop_token) {
@@ -16,20 +16,31 @@ manager::manager() {
             values = this->values;
           }
 
-          std::for_each(std::execution::par_unseq, values.begin(), values.end(),
-                        [](std::pair<uint, std::shared_ptr<pr>> pair) {
-                          auto counters = pair.second->fetch_and_reset_status();
+          auto start = std::chrono::steady_clock::now();
 
-                          double abort_rate = 0;
-                          if (counters.commits > 0) {
-                            abort_rate =
-                                (double)counters.aborts /
-                                (double)(counters.aborts + counters.commits);
-                          }
+          std::for_each(
+              std::execution::par_unseq, values.begin(), values.end(),
+              [](std::pair<uint, std::shared_ptr<pr>> pair) {
+                auto counters = pair.second->fetch_and_reset_status();
 
-                          pair.second->try_transition(abort_rate, counters.waiting,
-                                             counters.aborts_for_no_stock);
-                        });
+                double abort_rate = 0;
+                if (counters.commits > 0) {
+                  abort_rate = (double)counters.aborts /
+                               (double)(counters.aborts + counters.commits);
+                }
+
+                pair.second->try_transition(abort_rate, counters.waiting,
+                                            counters.aborts_for_no_stock);
+              });
+
+          auto end = std::chrono::steady_clock::now();
+
+          {
+            std::lock_guard<std::mutex> lock(this->phase_time_mutex);
+
+            this->total_phase_time += end - start;
+            ++this->phase_iterations;
+          }
         }
       });
 }
@@ -66,6 +77,23 @@ auto manager::deregister_pr(std::shared_ptr<pr> pr) -> void {
     values = this->values;
     values = values.erase(pr->get_id());
     this->values = values;
+  }
+}
+
+auto manager::get_avg_phase_interval() -> std::chrono::nanoseconds {
+  {
+    std::lock_guard<std::mutex> lock(this->phase_time_mutex);
+
+    return this->total_phase_time / phase_iterations;
+  }
+}
+
+auto manager::reset_global_stats() -> void {
+  {
+    std::scoped_lock lock(this->phase_time_mutex);
+
+    this->total_phase_time = std::chrono::nanoseconds{0};
+    this->phase_iterations = 0;
   }
 }
 
