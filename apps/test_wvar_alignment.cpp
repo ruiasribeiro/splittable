@@ -28,6 +28,7 @@ struct options_t {
   std::string benchmark;
   size_t num_workers;
   seconds duration;
+  size_t time_padding;
 };
 
 struct alignas(std::hardware_destructive_interference_size) aligned_wvar_t
@@ -35,6 +36,16 @@ struct alignas(std::hardware_destructive_interference_size) aligned_wvar_t
   // inherit all of the constructors
   using WSTM::WVar<uint>::WVar;
 };
+
+double waste_time(size_t iterations) {
+  auto value = 1;
+
+  for (size_t i = 0; i < iterations; ++i) {
+    value += value;
+  }
+
+  return value;
+}
 
 template <typename T>
 result_t run_immer(options_t options) {
@@ -53,6 +64,7 @@ result_t run_immer(options_t options) {
   for (size_t i = 0; i < options.num_workers; i++) {
     threads[i] = std::thread([&, i, options]() {
       size_t writes = 0;
+      double val{};
 
       bar.wait();
 
@@ -61,7 +73,9 @@ result_t run_immer(options_t options) {
 
       while ((now() - start) < warmup) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
           chunks[i]->Set(chunks[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
       }
 
@@ -69,12 +83,15 @@ result_t run_immer(options_t options) {
 
       while ((now() - start) < options.duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
           chunks[i]->Set(chunks[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
 
         writes++;
       }
 
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
       total_writes.fetch_add(writes);
     });
   }
@@ -104,6 +121,7 @@ result_t run_std(options_t options) {
   for (size_t i = 0; i < options.num_workers; i++) {
     threads[i] = std::thread([&, i, options]() {
       size_t writes = 0;
+      double val{};
 
       bar.wait();
 
@@ -112,7 +130,9 @@ result_t run_std(options_t options) {
 
       while ((now() - start) < warmup) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
           chunks[i].Set(chunks[i].Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
       }
 
@@ -120,12 +140,15 @@ result_t run_std(options_t options) {
 
       while ((now() - start) < options.duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
           chunks[i].Set(chunks[i].Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
 
         writes++;
       }
 
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
       total_writes.fetch_add(writes);
     });
   }
@@ -156,7 +179,10 @@ int main(int argc, char const* argv[]) {
       "set number of clients for the benchmark")
     ("duration,d", 
       po::value<size_t>()->required(),  
-      "set benchmark duration (in seconds)");
+      "set benchmark duration (in seconds)")
+    ("time_padding,p", 
+      po::value<size_t>()->required(),  
+      "set padding for the transactions");
   // clang-format on
 
   po::variables_map vm;
@@ -166,6 +192,7 @@ int main(int argc, char const* argv[]) {
   options.benchmark = vm["benchmark"].as<std::string>();
   options.num_workers = vm["num_workers"].as<size_t>();
   options.duration = seconds{vm["duration"].as<size_t>()};
+  options.time_padding = vm["time_padding"].as<size_t>();
 
   result_t result;
   if (options.benchmark == "immer-wvar") {
@@ -187,10 +214,12 @@ int main(int argc, char const* argv[]) {
     return 1;
   }
 
-  // CSV: benchmark, workers, execution time, writes, throughput (ops/s)
+  // CSV: benchmark, workers, execution time, padding, writes, throughput
+  // (ops/s)
   std::cout << options.benchmark << "," << options.num_workers << ","
-            << options.duration.count() << "," << result.writes << ","
-            << result.writes / options.duration.count() << "\n";
+            << options.duration.count() << "," << options.time_padding << ","
+            << result.writes << "," << result.writes / options.duration.count()
+            << "\n";
 
   // return 0;
   quick_exit(0);
