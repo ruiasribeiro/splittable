@@ -184,9 +184,6 @@ static manager_t<S>* initializeManager() {
   long t;
   long numTable = sizeof(manager_add) / sizeof(manager_add[0]);
 
-  // printf("Initializing manager... ");
-  // fflush(stdout);
-
   managerPtr = new manager_t<S>();
   assert(managerPtr != NULL);
 
@@ -218,9 +215,6 @@ static manager_t<S>* initializeManager() {
 
   } /* for t */
 
-  // puts("done.");
-  // fflush(stdout);
-
   free(ids);
 
   return managerPtr;
@@ -243,9 +237,6 @@ static client_t<S>** initializeClients(manager_t<S>* managerPtr) {
   long queryRange;
   long percentUser = (long)global_params[PARAM_USER];
 
-  // printf("Initializing clients... ");
-  // fflush(stdout);
-
   clients = (client_t<S>**)malloc(numClient * sizeof(client_t<S>*));
   assert(clients != NULL);
   numTransactionPerClient =
@@ -257,17 +248,6 @@ static client_t<S>** initializeClients(manager_t<S>* managerPtr) {
                               numQueryPerTransaction, queryRange, percentUser);
     assert(clients[i] != NULL);
   }
-
-  // puts("done.");
-  // printf("    Transactions        = %li\n", numTransaction);
-  // printf("    Clients             = %li\n", numClient);
-  // printf("    Transactions/client = %li\n", numTransactionPerClient);
-  // printf("    Queries/transaction = %li\n", numQueryPerTransaction);
-  // printf("    Relations           = %li\n", numRelation);
-  // printf("    Query percent       = %li\n", percentQuery);
-  // printf("    Query range         = %li\n", queryRange);
-  // printf("    Percent user        = %li\n", percentUser);
-  // fflush(stdout);
 
   return clients;
 }
@@ -294,9 +274,6 @@ static void checkTables(manager_t<S>* managerPtr) {
   bool (*manager_add[])(manager_t<S>*, long, long, long) = {
       &manager_addCar, &manager_addFlight, &manager_addRoom};
   long t;
-
-  // printf("Checking tables... ");
-  // fflush(stdout);
 
   /* Check for unique customer IDs */
   long percentQuery = (long)global_params[PARAM_QUERIES];
@@ -338,9 +315,6 @@ static void checkTables(manager_t<S>* managerPtr) {
       });
     }
   }
-
-  // puts("done.");
-  // fflush(stdout);
 }
 
 /* =============================================================================
@@ -377,8 +351,6 @@ int templated_main() {
   thread_startup<S>(numThread);
 
   /* Run transactions */
-  // printf("Running clients... ");
-  // fflush(stdout);
   S::reset_global_stats();
   TIMER_READ(start);
   thread_start<S>(client_run<S>, (void*)clients);
@@ -387,9 +359,6 @@ int templated_main() {
   auto avg_adjust_interval = S::get_avg_adjust_interval();
   auto avg_balance_interval = S::get_avg_balance_interval();
   auto avg_phase_interval = S::get_avg_phase_interval();
-  // puts("done.");
-  // printf("Time = %0.6lf\n", TIMER_DIFF_SECONDS(start, stop));
-  // fflush(stdout);
 
   checkTables<S>(managerPtr);
 
@@ -404,15 +373,11 @@ int templated_main() {
             << avg_phase_interval.count() / 1000000.0 << "\n";
 
   /* Clean up */
-  // printf("Deallocating memory... ");
-  // fflush(stdout);
   freeClients(clients);
   /*
    * TODO: The contents of the manager's table need to be deallocated.
    */
   delete managerPtr;
-  // puts("done.");
-  // fflush(stdout);
 
   thread_shutdown<S>();
 

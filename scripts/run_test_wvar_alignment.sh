@@ -1,8 +1,8 @@
 #!/bin/bash
 
-type_list=(std-wvar std-aligned-wvar)
-worker_list=(4)
-seconds=5
+type_list=(immer-wvar immer-aligned-wvar std-wvar std-aligned-wvar)
+worker_list=(1 2 4 8 16 32 64 128)
+seconds=60
 runs=5
 padding=100000
 

@@ -21,7 +21,7 @@ using namespace std::chrono_literals;
 const seconds warmup(5);
 
 struct result_t {
-  uint writes;
+  uint64_t writes;
 };
 
 struct options_t {
@@ -49,7 +49,7 @@ double waste_time(size_t iterations) {
 
 template <typename T>
 result_t run_immer(options_t options) {
-  auto total_writes = std::atomic_uint(0);
+  auto total_writes = std::atomic_uint64_t(0);
   auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
   immer::flex_vector<std::shared_ptr<T>> chunks;
@@ -107,7 +107,7 @@ result_t run_immer(options_t options) {
 
 template <typename T>
 result_t run_std(options_t options) {
-  auto total_writes = std::atomic_uint(0);
+  auto total_writes = std::atomic_uint64_t(0);
   auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
   std::vector<T> chunks;
@@ -218,7 +218,8 @@ int main(int argc, char const* argv[]) {
   // (ops/s)
   std::cout << options.benchmark << "," << options.num_workers << ","
             << options.duration.count() << "," << options.time_padding << ","
-            << result.writes << "," << result.writes / options.duration.count()
+            << result.writes << ","
+            << static_cast<double>(result.writes) / options.duration.count()
             << "\n";
 
   // return 0;
