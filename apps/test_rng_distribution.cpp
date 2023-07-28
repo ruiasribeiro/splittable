@@ -40,74 +40,32 @@ auto random_index_ranlux24_base(size_t min, size_t max) -> size_t {
   return distribution(generator);
 }
 
-result_t run(size_t workers, seconds duration,
-             std::function<size_t(size_t, size_t)> generate) {
-  std::array<uint64_t, MAX_RANGE> total_occurrences;
-  std::mutex array_mutex;
-  total_occurrences.fill(0);
+result_t run(seconds duration, std::function<size_t(size_t, size_t)> generate) {
+  std::array<uint64_t, MAX_RANGE> occurrences;
+  occurrences.fill(0);
 
-  auto threads = std::make_unique<std::thread[]>(workers);
+  auto now = steady_clock::now;
+  auto start = now();
 
-  boost::barrier bar(workers + 1);
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
-      std::array<uint64_t, MAX_RANGE> occurrences;
-      occurrences.fill(0);
-
-      bar.wait();
-
-      auto now = steady_clock::now;
-      auto start = now();
-
-      while ((now() - start) < duration) {
-        ++occurrences[generate(0, MAX_RANGE - 1)];
-      }
-
-      {
-        std::lock_guard<std::mutex> guard(array_mutex);
-
-        for (size_t i = 0; i < MAX_RANGE; ++i) {
-          total_occurrences[i] += occurrences[i];
-        }
-      }
-    });
+  while ((now() - start) < duration) {
+    ++occurrences[generate(0, MAX_RANGE - 1)];
   }
 
-  bar.wait();
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i].join();
-  }
-
-  return {.occurrences = total_occurrences};
+  return {.occurrences = occurrences};
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 4) {
-    std::cerr << "requires 3 positional arguments: benchmark, number of "
-                 "workers, execution time (s)\n";
-    return 1;
-  }
-
-  int workers;
-  try {
-    workers = std::stoi(argv[2]);
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[2] << "\" to an integer\n";
-    return 1;
-  }
-
-  if (workers < 1) {
-    std::cerr << "minimum of 1 worker is required\n";
+  if (argc < 3) {
+    std::cerr
+        << "requires 2 positional arguments: benchmark, execution time (s)\n";
     return 1;
   }
 
   seconds execution_time;
   try {
-    execution_time = seconds{std::stoi(argv[3])};
+    execution_time = seconds{std::stoi(argv[2])};
   } catch (...) {
-    std::cerr << "could not convert \"" << argv[3] << "\" to an integer\n";
+    std::cerr << "could not convert \"" << argv[2] << "\" to an integer\n";
     return 1;
   }
 
@@ -132,11 +90,10 @@ int main(int argc, char const* argv[]) {
   }
 
   result_t result;
-  result = run(workers, execution_time, generate);
+  result = run(execution_time, generate);
 
-  // CSV header: benchmark, workers, execution time (s), occurrences
-  std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << ",";
+  // CSV header: benchmark, execution time (s), occurrences
+  std::cout << benchmark << "," << execution_time.count() << ",";
   for (size_t i = 0; i < MAX_RANGE - 1; ++i) {
     std::cout << result.occurrences[i] << ";";
   }
