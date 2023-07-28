@@ -1,5 +1,6 @@
 #include <wstm/stm.h>
 
+#include <boost/program_options.hpp>
 #include <boost/thread/barrier.hpp>
 #include <chrono>
 #include <immer/flex_vector.hpp>
@@ -16,13 +17,23 @@ using std::chrono::steady_clock;
 
 using namespace std::chrono_literals;
 
+const seconds warmup(5);
+
 struct result_t {
-  uint operations;
+  uint64_t operations;
 };
 
-struct alignas(std::hardware_destructive_interference_size) padded_wvar_t {
-  WSTM::WVar<uint> value;
-  padded_wvar_t() : value() {}
+struct options_t {
+  std::string benchmark;
+  size_t num_workers;
+  seconds duration;
+  size_t time_padding;
+};
+
+struct alignas(std::hardware_destructive_interference_size) aligned_wvar_t
+    : public WSTM::WVar<uint> {
+  // inherit all of the constructors
+  using WSTM::WVar<uint>::WVar;
 };
 
 double waste_time(size_t iterations) {
@@ -35,25 +46,79 @@ double waste_time(size_t iterations) {
   return value;
 }
 
-result_t bm_stl_vector(size_t workers, seconds duration, int time_padding) {
-  auto values = std::vector<padded_wvar_t>(workers);
-  auto threads = std::make_unique<std::thread[]>(workers);
+result_t bm_stl_vector(options_t options) {
+  auto total_writes = std::atomic_uint64_t(0);
+  auto values = std::vector<aligned_wvar_t>(options.num_workers);
+  auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
-  boost::barrier bar(workers + 1);
+  boost::barrier bar(options.num_workers + 1);
 
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
+  for (size_t i = 0; i < options.num_workers; i++) {
+    threads[i] = std::thread([&, i]() {
+      size_t writes = 0;
       double val = 0.0;
       bar.wait();
 
       auto now = steady_clock::now;
       auto start = now();
 
-      while ((now() - start) < duration) {
+      while ((now() - start) < warmup) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(time_padding);
-          values[i].value.Set(values[i].value.Get(at) + 1, at);
-          val = waste_time(time_padding);
+          val = waste_time(options.time_padding);
+          values[i].Set(values[i].Get(at) + 1, at);
+          val = waste_time(options.time_padding);
+        });
+      }
+
+      start = now();
+
+      while ((now() - start) < options.duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
+          values[i].Set(values[i].Get(at) + 1, at);
+          val = waste_time(options.time_padding);
+        });
+
+        writes++;
+      }
+
+      volatile auto avoid_optimisation __attribute__((unused)) = val;
+      total_writes.fetch_add(writes);
+    });
+  }
+
+  bar.wait();
+
+  for (size_t i = 0; i < options.num_workers; i++) {
+    threads[i].join();
+  }
+
+  return {.operations = total_writes.load()};
+}
+
+result_t bm_stl_vector_ptrs(options_t options) {
+  auto values = std::vector<std::shared_ptr<aligned_wvar_t>>();
+  for (auto i = 0u; i < options.num_workers; ++i) {
+    values.push_back(std::make_shared<aligned_wvar_t>());
+  }
+
+  auto threads = std::make_unique<std::thread[]>(options.num_workers);
+
+  boost::barrier bar(options.num_workers + 1);
+
+  for (size_t i = 0; i < options.num_workers; i++) {
+    threads[i] = std::thread([&, i]() {
+      double val = 0.0;
+      bar.wait();
+
+      auto now = steady_clock::now;
+      auto start = now();
+
+      while ((now() - start) < options.duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
+          values[i]->Set(values[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
       }
 
@@ -63,90 +128,44 @@ result_t bm_stl_vector(size_t workers, seconds duration, int time_padding) {
 
   bar.wait();
 
-  for (size_t i = 0; i < workers; i++) {
+  for (size_t i = 0; i < options.num_workers; i++) {
     threads[i].join();
   }
 
   auto operations = 0u;
   for (auto&& value : values) {
-    operations += value.value.GetReadOnly();
+    operations += value->GetReadOnly();
   }
 
   return {.operations = operations};
 }
 
-result_t bm_stl_vector_ptrs(size_t workers, seconds duration,
-                            int time_padding) {
-  auto values = std::vector<std::shared_ptr<padded_wvar_t>>();
-  for (auto i = 0u; i < workers; ++i) {
-    values.push_back(std::make_shared<padded_wvar_t>());
-  }
-
-  auto threads = std::make_unique<std::thread[]>(workers);
-
-  boost::barrier bar(workers + 1);
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
-      double val = 0.0;
-      bar.wait();
-
-      auto now = steady_clock::now;
-      auto start = now();
-
-      while ((now() - start) < duration) {
-        WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(time_padding);
-          values[i]->value.Set(values[i]->value.Get(at) + 1, at);
-          val = waste_time(time_padding);
-        });
-      }
-
-      volatile auto avoid_optimisation __attribute__((unused)) = val;
-    });
-  }
-
-  bar.wait();
-
-  for (size_t i = 0; i < workers; i++) {
-    threads[i].join();
-  }
-
-  auto operations = 0u;
-  for (auto&& value : values) {
-    operations += value->value.GetReadOnly();
-  }
-
-  return {.operations = operations};
-}
-
-result_t bm_immer_flex_vector(size_t workers, seconds duration,
-                              int time_padding) {
-  auto values = immer::flex_vector<std::shared_ptr<padded_wvar_t>>();
+result_t bm_immer_flex_vector(options_t options) {
+  auto values = immer::flex_vector<std::shared_ptr<aligned_wvar_t>>();
 
   auto t = values.transient();
-  for (auto i = 0u; i < workers; ++i) {
-    t.push_back(std::make_shared<padded_wvar_t>());
+  for (auto i = 0u; i < options.num_workers; ++i) {
+    t.push_back(std::make_shared<aligned_wvar_t>());
   }
   values = t.persistent();
 
-  auto threads = std::make_unique<std::thread[]>(workers);
+  auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
-  boost::barrier bar(workers + 1);
+  boost::barrier bar(options.num_workers + 1);
 
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
+  for (size_t i = 0; i < options.num_workers; i++) {
+    threads[i] = std::thread([&, i]() {
       double val = 0.0;
       bar.wait();
 
       auto now = steady_clock::now;
       auto start = now();
 
-      while ((now() - start) < duration) {
+      while ((now() - start) < options.duration) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
-          val = waste_time(time_padding);
-          values[i]->value.Set(values[i]->value.Get(at) + 1, at);
-          val = waste_time(time_padding);
+          val = waste_time(options.time_padding);
+          values[i]->Set(values[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
         });
       }
 
@@ -156,75 +175,59 @@ result_t bm_immer_flex_vector(size_t workers, seconds duration,
 
   bar.wait();
 
-  for (size_t i = 0; i < workers; i++) {
+  for (size_t i = 0; i < options.num_workers; i++) {
     threads[i].join();
   }
 
   auto operations = 0u;
   for (auto&& value : values) {
-    operations += value->value.GetReadOnly();
+    operations += value->GetReadOnly();
   }
 
   return {.operations = operations};
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 5) {
-    std::cerr << "requires 4 positional arguments: benchmark, number of "
-                 "workers, execution time (s), padding\n";
-    return 1;
-  }
+  namespace po = boost::program_options;
 
-  int workers;
-  try {
-    workers = std::stoi(argv[2]);
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[2] << "\" to an integer\n";
-    return 1;
-  }
+  options_t options;
+  po::options_description description("Allowed options");
 
-  if (workers < 1) {
-    std::cerr << "minimum of 1 worker is required\n";
-    return 1;
-  }
+  // clang-format off
+  description.add_options()
+    ("help,h", "produce help message")
+    ("benchmark,b", 
+      po::value<std::string>()->default_value(""), 
+      "set splittable type")
+    ("num_workers,w", 
+      po::value<size_t>()->required(), 
+      "set number of clients for the benchmark")
+    ("duration,d", 
+      po::value<size_t>()->required(),  
+      "set benchmark duration (in seconds)")
+    ("time_padding,p", 
+      po::value<size_t>()->required(),  
+      "set padding for the transactions");
+  // clang-format on
 
-  seconds execution_time;
-  try {
-    execution_time = seconds{std::stoi(argv[3])};
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[3] << "\" to an integer\n";
-    return 1;
-  }
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, description), vm);
+  po::notify(vm);
 
-  if (execution_time.count() < 1) {
-    std::cerr << "minimum of 1 second is required\n";
-    return 1;
-  }
-
-  int padding;
-  try {
-    padding = std::stoi(argv[4]);
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[4] << "\" to an integer\n";
-    return 1;
-  }
-
-  if (padding < 0) {
-    std::cerr << "the padding must be a non-negative integer\n";
-    return 1;
-  }
-
-  std::string benchmark(argv[1]);
+  options.benchmark = vm["benchmark"].as<std::string>();
+  options.num_workers = vm["num_workers"].as<size_t>();
+  options.duration = seconds{vm["duration"].as<size_t>()};
+  options.time_padding = vm["time_padding"].as<size_t>();
 
   result_t result;
-  if (benchmark == "stl_vector") {
-    result = bm_stl_vector(workers, execution_time, padding);
-  } else if (benchmark == "stl_vector_ptrs") {
-    result = bm_stl_vector_ptrs(workers, execution_time, padding);
-  } else if (benchmark == "immer_flex_vector") {
-    result = bm_immer_flex_vector(workers, execution_time, padding);
+  if (options.benchmark == "stl_vector") {
+    result = bm_stl_vector(options);
+  } else if (options.benchmark == "stl_vector_ptrs") {
+    result = bm_stl_vector_ptrs(options);
+  } else if (options.benchmark == "immer_flex_vector") {
+    result = bm_immer_flex_vector(options);
   } else {
-    std::cerr << "could not find a benchmark with name \"" << benchmark
+    std::cerr << "could not find a benchmark with name \"" << options.benchmark
               << "\"; try \"stl_vector\", \"stl_vector_ptrs\", "
                  "\"immer_flex_vector\"\n";
     return 1;
@@ -232,10 +235,11 @@ int main(int argc, char const* argv[]) {
 
   // CSV header: benchmark, workers, execution time, padding, # of commited
   // operations, throughput (ops/s)
-  std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << padding << "," << result.operations << ","
-            << result.operations / execution_time.count() << "\n";
+  std::cout << options.benchmark << "," << options.num_workers << ","
+            << options.duration.count() << "," << options.time_padding << ","
+            << result.operations << ","
+            << static_cast<double>(result.operations) / options.duration.count()
+            << "\n";
 
-  // return 0;
   quick_exit(0);
 }
