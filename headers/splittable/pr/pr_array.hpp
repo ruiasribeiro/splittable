@@ -16,13 +16,7 @@ namespace splittable::pr {
 
 class pr_array : public pr, public std::enable_shared_from_this<pr_array> {
  private:
-  // this struct allows for explicit alignment of the transactional variables,
-  // useful for avoiding false sharing
-  struct alignas(std::hardware_destructive_interference_size) chunk_t
-      : public WSTM::WVar<uint> {
-    // inherit all of the constructors
-    using WSTM::WVar<uint>::WVar;
-  };
+  using chunk_t = WSTM::WVar<uint>;
 
   using single_t = uint;
   // each of the values needs to be a WVar, I think, to allow transactions to

@@ -30,11 +30,7 @@ struct options_t {
   size_t time_padding;
 };
 
-struct alignas(std::hardware_destructive_interference_size) aligned_wvar_t
-    : public WSTM::WVar<uint> {
-  // inherit all of the constructors
-  using WSTM::WVar<uint>::WVar;
-};
+using wvar_t = WSTM::WVar<uint>;
 
 double waste_time(size_t iterations) {
   auto value = 1;
@@ -48,7 +44,7 @@ double waste_time(size_t iterations) {
 
 result_t bm_stl_vector(options_t options) {
   auto total_writes = std::atomic_uint64_t(0);
-  auto values = std::vector<aligned_wvar_t>(options.num_workers);
+  auto values = std::vector<wvar_t>(options.num_workers);
   auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
   boost::barrier bar(options.num_workers + 1);
@@ -97,9 +93,9 @@ result_t bm_stl_vector(options_t options) {
 }
 
 result_t bm_stl_vector_ptrs(options_t options) {
-  auto values = std::vector<std::shared_ptr<aligned_wvar_t>>();
+  auto values = std::vector<std::shared_ptr<wvar_t>>();
   for (auto i = 0u; i < options.num_workers; ++i) {
-    values.push_back(std::make_shared<aligned_wvar_t>());
+    values.push_back(std::make_shared<wvar_t>());
   }
 
   auto threads = std::make_unique<std::thread[]>(options.num_workers);
@@ -141,11 +137,11 @@ result_t bm_stl_vector_ptrs(options_t options) {
 }
 
 result_t bm_immer_flex_vector(options_t options) {
-  auto values = immer::flex_vector<std::shared_ptr<aligned_wvar_t>>();
+  auto values = immer::flex_vector<std::shared_ptr<wvar_t>>();
 
   auto t = values.transient();
   for (auto i = 0u; i < options.num_workers; ++i) {
-    t.push_back(std::make_shared<aligned_wvar_t>());
+    t.push_back(std::make_shared<wvar_t>());
   }
   values = t.persistent();
 

@@ -28,14 +28,7 @@ class mrv_flex_vector : public mrv,
 
   uint id;
 
-  // this struct allows for explicit alignment of the transactional variables,
-  // useful for avoiding false sharing
-  struct alignas(std::hardware_destructive_interference_size) chunk_t
-      : public WSTM::WVar<uint> {
-    // inherit all of the constructors
-    using WSTM::WVar<uint>::WVar;
-  };
-
+  using chunk_t = WSTM::WVar<uint>;
   using chunks_t = immer::flex_vector<std::shared_ptr<chunk_t>>;
   // this pointer is only accessed with atomic instructions
   std::shared_ptr<chunks_t> chunks;
