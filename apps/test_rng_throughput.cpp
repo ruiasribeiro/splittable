@@ -1,4 +1,5 @@
 #include <atomic>
+#include <boost/program_options.hpp>
 #include <boost/thread/barrier.hpp>
 #include <chrono>
 #include <cstdint>
@@ -24,6 +25,12 @@ struct result_t {
   uint64_t operations;
 };
 
+struct options_t {
+  std::string benchmark;
+  size_t num_workers;
+  seconds duration;
+};
+
 auto random_index_mt19937(size_t min, size_t max) -> size_t {
   thread_local std::mt19937 generator(std::random_device{}());
   thread_local std::uniform_int_distribution<size_t> distribution(min, max);
@@ -42,15 +49,15 @@ auto random_index_ranlux24_base(size_t min, size_t max) -> size_t {
   return distribution(generator);
 }
 
-result_t run(size_t workers, seconds duration,
+result_t run(options_t options,
              std::function<size_t(size_t, size_t)> generate) {
   auto total_ops = std::atomic_uint64_t(0);
-  auto threads = std::make_unique<std::thread[]>(workers);
+  auto threads = std::make_unique<std::thread[]>(options.num_workers);
 
-  boost::barrier bar(workers + 1);
+  boost::barrier bar(options.num_workers + 1);
 
-  for (size_t i = 0; i < workers; i++) {
-    threads[i] = std::thread([&, i, duration]() {
+  for (size_t i = 0; i < options.num_workers; i++) {
+    threads[i] = std::thread([&, i]() {
       size_t ops = 0;
       uint val{};
       bar.wait();
@@ -64,7 +71,7 @@ result_t run(size_t workers, seconds duration,
 
       start = now();
 
-      while ((now() - start) < duration) {
+      while ((now() - start) < options.duration) {
         val = generate(MIN_RANGE, MAX_RANGE);
         ++ops;
       }
@@ -76,7 +83,7 @@ result_t run(size_t workers, seconds duration,
 
   bar.wait();
 
-  for (size_t i = 0; i < workers; i++) {
+  for (size_t i = 0; i < options.num_workers; i++) {
     threads[i].join();
   }
 
@@ -84,61 +91,54 @@ result_t run(size_t workers, seconds duration,
 }
 
 int main(int argc, char const* argv[]) {
-  if (argc < 4) {
-    std::cerr << "requires 3 positional arguments: benchmark, number of "
-                 "workers, execution time (s)\n";
-    return 1;
-  }
+  namespace po = boost::program_options;
 
-  int workers;
-  try {
-    workers = std::stoi(argv[2]);
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[2] << "\" to an integer\n";
-    return 1;
-  }
+  options_t options;
+  po::options_description description("Allowed options");
 
-  if (workers < 1) {
-    std::cerr << "minimum of 1 worker is required\n";
-    return 1;
-  }
+  // clang-format off
+  description.add_options()
+    ("help,h", "produce help message")
+    ("benchmark,b", 
+      po::value<std::string>()->default_value(""), 
+      "set splittable type")
+    ("num_workers,w", 
+      po::value<size_t>()->required(), 
+      "set number of clients for the benchmark")
+    ("duration,d", 
+      po::value<size_t>()->required(),  
+      "set benchmark duration (in seconds)");
+  // clang-format on
 
-  seconds execution_time;
-  try {
-    execution_time = seconds{std::stoi(argv[3])};
-  } catch (...) {
-    std::cerr << "could not convert \"" << argv[3] << "\" to an integer\n";
-    return 1;
-  }
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, description), vm);
+  po::notify(vm);
 
-  if (execution_time.count() < 1) {
-    std::cerr << "minimum of 1 second is required\n";
-    return 1;
-  }
-
-  std::string benchmark(argv[1]);
+  options.benchmark = vm["benchmark"].as<std::string>();
+  options.num_workers = vm["num_workers"].as<size_t>();
+  options.duration = seconds{vm["duration"].as<size_t>()};
 
   std::function<size_t(size_t, size_t)> generate;
-  if (benchmark == "mt") {
+  if (options.benchmark == "mt") {
     generate = random_index_mt19937;
-  } else if (benchmark == "minstd") {
+  } else if (options.benchmark == "minstd") {
     generate = random_index_minstd_rand;
-  } else if (benchmark == "ranlux24") {
+  } else if (options.benchmark == "ranlux24") {
     generate = random_index_ranlux24_base;
   } else {
-    std::cerr << "could not find a benchmark with name \"" << benchmark
+    std::cerr << "could not find a benchmark with name \"" << options.benchmark
               << "\"; try \"mt\", \"minstd\", \"ranlux24\"\n";
     return 1;
   }
 
-  result_t result;
-  result = run(workers, execution_time, generate);
+  result_t result = run(options, generate);
 
   // CSV header: benchmark, workers, execution time (s), # of commited
   // operations, throughput (ops/s)
-  std::cout << benchmark << "," << workers << "," << execution_time.count()
-            << "," << result.operations << ","
-            << result.operations / execution_time.count() << "\n";
+  std::cout << options.benchmark << "," << options.num_workers << ","
+            << options.duration.count() << "," << result.operations << ","
+            << static_cast<double>(result.operations) / options.duration.count()
+            << "\n";
 
   // return 0;
   quick_exit(0);
