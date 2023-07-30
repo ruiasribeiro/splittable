@@ -1,6 +1,6 @@
 #!/bin/bash
 
-type_list=(mt minstd ranlux24)
+type_list=(mt minstd ranlux24 xoshiro128)
 seconds=60
 runs=1
 

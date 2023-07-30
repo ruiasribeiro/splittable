@@ -1,9 +1,9 @@
 #!/bin/bash
 
-type_list=(mt minstd ranlux24)
+type_list=(mt minstd ranlux24 xoshiro128)
 worker_list=(1 2 4 8 16 32 64 128)
 seconds=60
-runs=1
+runs=5
 
 printf "benchmark,workers,execution time (s),operations,throughput (ops/s)\n"
 

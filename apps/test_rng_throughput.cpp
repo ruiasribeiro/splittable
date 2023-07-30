@@ -1,3 +1,4 @@
+#include <XoshiroCpp.hpp>
 #include <atomic>
 #include <boost/program_options.hpp>
 #include <boost/thread/barrier.hpp>
@@ -45,6 +46,12 @@ auto random_index_minstd_rand(size_t min, size_t max) -> size_t {
 
 auto random_index_ranlux24_base(size_t min, size_t max) -> size_t {
   thread_local std::ranlux24_base generator(std::random_device{}());
+  thread_local std::uniform_int_distribution<size_t> distribution(min, max);
+  return distribution(generator);
+}
+
+auto random_index_xoshiro128plusplus(size_t min, size_t max) -> size_t {
+  thread_local XoshiroCpp::Xoshiro128PlusPlus generator(std::random_device{}());
   thread_local std::uniform_int_distribution<size_t> distribution(min, max);
   return distribution(generator);
 }
@@ -125,9 +132,11 @@ int main(int argc, char const* argv[]) {
     generate = random_index_minstd_rand;
   } else if (options.benchmark == "ranlux24") {
     generate = random_index_ranlux24_base;
+  } else if (options.benchmark == "xoshiro128") {
+    generate = random_index_xoshiro128plusplus;
   } else {
     std::cerr << "could not find a benchmark with name \"" << options.benchmark
-              << "\"; try \"mt\", \"minstd\", \"ranlux24\"\n";
+              << "\"; try \"mt\", \"minstd\", \"ranlux24\", \"xoshiro128\"\n";
     return 1;
   }
 
