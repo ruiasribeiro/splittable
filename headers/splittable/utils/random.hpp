@@ -1,5 +1,6 @@
 #pragma once
 
+#include <XoshiroCpp.hpp>
 #include <random>
 
 namespace splittable::utils {
@@ -10,9 +11,5 @@ namespace splittable::utils {
 /// @param max
 /// @return
 auto random_index(size_t min, size_t max) -> size_t;
-
-auto random_index_mt19937(size_t min, size_t max) -> size_t;
-auto random_index_minstd_rand(size_t min, size_t max) -> size_t;
-auto random_index_ranlux24_base(size_t min, size_t max) -> size_t;
 
 }  // namespace splittable::utils
