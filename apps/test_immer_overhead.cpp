@@ -93,6 +93,8 @@ result_t bm_stl_vector(options_t options) {
 }
 
 result_t bm_stl_vector_ptrs(options_t options) {
+  auto total_writes = std::atomic_uint64_t(0);
+
   auto values = std::vector<std::shared_ptr<wvar_t>>();
   for (auto i = 0u; i < options.num_workers; ++i) {
     values.push_back(std::make_shared<wvar_t>());
@@ -104,13 +106,14 @@ result_t bm_stl_vector_ptrs(options_t options) {
 
   for (size_t i = 0; i < options.num_workers; i++) {
     threads[i] = std::thread([&, i]() {
+      size_t writes = 0;
       double val = 0.0;
       bar.wait();
 
       auto now = steady_clock::now;
       auto start = now();
 
-      while ((now() - start) < options.duration) {
+      while ((now() - start) < warmup) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(options.time_padding);
           values[i]->Set(values[i]->Get(at) + 1, at);
@@ -118,7 +121,20 @@ result_t bm_stl_vector_ptrs(options_t options) {
         });
       }
 
+      start = now();
+
+      while ((now() - start) < options.duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
+          values[i]->Set(values[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
+        });
+
+        writes++;
+      }
+
       volatile auto avoid_optimisation __attribute__((unused)) = val;
+      total_writes.fetch_add(writes);
     });
   }
 
@@ -128,15 +144,11 @@ result_t bm_stl_vector_ptrs(options_t options) {
     threads[i].join();
   }
 
-  auto operations = 0u;
-  for (auto&& value : values) {
-    operations += value->GetReadOnly();
-  }
-
-  return {.operations = operations};
+  return {.operations = total_writes.load()};
 }
 
 result_t bm_immer_flex_vector(options_t options) {
+  auto total_writes = std::atomic_uint64_t(0);
   auto values = immer::flex_vector<std::shared_ptr<wvar_t>>();
 
   auto t = values.transient();
@@ -151,13 +163,14 @@ result_t bm_immer_flex_vector(options_t options) {
 
   for (size_t i = 0; i < options.num_workers; i++) {
     threads[i] = std::thread([&, i]() {
+      size_t writes = 0;
       double val = 0.0;
       bar.wait();
 
       auto now = steady_clock::now;
       auto start = now();
 
-      while ((now() - start) < options.duration) {
+      while ((now() - start) < warmup) {
         WSTM::Atomically([&](WSTM::WAtomic& at) {
           val = waste_time(options.time_padding);
           values[i]->Set(values[i]->Get(at) + 1, at);
@@ -165,7 +178,20 @@ result_t bm_immer_flex_vector(options_t options) {
         });
       }
 
+      start = now();
+
+      while ((now() - start) < options.duration) {
+        WSTM::Atomically([&](WSTM::WAtomic& at) {
+          val = waste_time(options.time_padding);
+          values[i]->Set(values[i]->Get(at) + 1, at);
+          val = waste_time(options.time_padding);
+        });
+
+        writes++;
+      }
+
       volatile auto avoid_optimisation __attribute__((unused)) = val;
+      total_writes.fetch_add(writes);
     });
   }
 
@@ -175,12 +201,7 @@ result_t bm_immer_flex_vector(options_t options) {
     threads[i].join();
   }
 
-  auto operations = 0u;
-  for (auto&& value : values) {
-    operations += value->GetReadOnly();
-  }
-
-  return {.operations = operations};
+  return {.operations = total_writes.load()};
 }
 
 int main(int argc, char const* argv[]) {
