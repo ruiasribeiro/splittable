@@ -226,6 +226,42 @@ auto mrv_flex_vector::remove_node() -> void {
 
 auto mrv_flex_vector::balance() -> void { this->balance_minmax(); }
 
+auto mrv_flex_vector::balance_all() -> void {
+  try {
+    WSTM::Atomically([&](WSTM::WAtomic& at) {
+      auto chunks = *std::atomic_load(&this->chunks).get();
+      auto size = chunks.size();
+
+      if (size < 2) {
+        throw exception();
+      }
+
+      uint64_t total = 0;
+      {
+        WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
+        for (auto i = 0u; i < size; ++i) {
+          total += chunks[i]->Get(at);
+        }
+      }
+
+      // TODO: check for unneeded balances; not sure if it is feasible here, we
+      // would have to make many comparisons just to check if we need to abort,
+      // seems like it would incur in a big overhead
+
+      auto new_value = total / size;
+      auto remainder = total % size;
+
+      chunks[0]->Set(new_value + remainder, at);
+      for (auto i = 1u; i < size; ++i) {
+        chunks[i]->Set(new_value, at);
+      }
+    });
+  } catch (...) {
+    // there is no problem if an exception is thrown, this will be tried again
+    // in the next balance phase
+  }
+}
+
 auto mrv_flex_vector::balance_minmax() -> void {
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {

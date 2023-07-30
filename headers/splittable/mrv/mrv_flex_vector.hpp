@@ -37,6 +37,10 @@ class mrv_flex_vector : public mrv,
   // problems
   std::mutex resizing_mutex;
 
+  auto balance_all() -> void;
+  auto balance_minmax() -> void;
+  auto balance_minmax_with_k() -> void;
+  auto balance_random() -> void;
  public:
   // TODO: this is not private because of make_shared, need to revise that later
   mrv_flex_vector(uint value);
@@ -64,9 +68,6 @@ class mrv_flex_vector : public mrv,
   auto add_nodes(double abort_rate) -> void;
   auto remove_node() -> void;
   auto balance() -> void;
-  auto balance_minmax() -> void;
-  auto balance_minmax_with_k() -> void;
-  auto balance_random() -> void;
 };
 
 }  // namespace splittable::mrv
