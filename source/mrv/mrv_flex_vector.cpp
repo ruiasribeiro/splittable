@@ -2,6 +2,8 @@
 
 namespace splittable::mrv {
 
+std::function<void(WSTM::WAtomic&, chunks_t)> mrv_flex_vector::balance_strategy;
+
 mrv_flex_vector::mrv_flex_vector(uint value) : status_counters(0) {
   this->id = mrv::id_counter.fetch_add(1, std::memory_order_relaxed);
 
@@ -224,88 +226,82 @@ auto mrv_flex_vector::remove_node() -> void {
   }
 }
 
-auto mrv_flex_vector::balance() -> void { this->balance_minmax(); }
-
-auto mrv_flex_vector::balance_all() -> void {
+auto mrv_flex_vector::balance() -> void {
   try {
     WSTM::Atomically([&](WSTM::WAtomic& at) {
       auto chunks = *std::atomic_load(&this->chunks).get();
-      auto size = chunks.size();
-
-      if (size < 2) {
-        throw exception();
-      }
-
-      uint64_t total = 0;
-      {
-        WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
-        for (auto i = 0u; i < size; ++i) {
-          total += chunks[i]->Get(at);
-        }
-      }
-
-      // TODO: check for unneeded balances; not sure if it is feasible here, we
-      // would have to make many comparisons just to check if we need to abort,
-      // seems like it would incur in a big overhead
-
-      auto new_value = total / size;
-      auto remainder = total % size;
-
-      chunks[0]->Set(new_value + remainder, at);
-      for (auto i = 1u; i < size; ++i) {
-        chunks[i]->Set(new_value, at);
-      }
+      balance_strategy(at, chunks);
     });
-  } catch (...) {
+  } catch (exception& ex) {
     // there is no problem if an exception is thrown, this will be tried again
     // in the next balance phase
   }
 }
 
-auto mrv_flex_vector::balance_minmax() -> void {
-  try {
-    WSTM::Atomically([&](WSTM::WAtomic& at) {
-      auto chunks = *std::atomic_load(&this->chunks).get();
-      auto size = chunks.size();
+auto balance_all(WSTM::WAtomic& at, chunks_t chunks) -> void {
+  auto size = chunks.size();
 
-      if (size < 2) {
-        throw exception();
-      }
-
-      auto min_i = 0u;
-      auto min_v = UINT_MAX;
-      auto max_i = 0u;
-      auto max_v = 0u;
-
-      uint read_value;
-      for (auto i = 0u; i < size; ++i) {
-        read_value = chunks[i]->Get(at);
-
-        if (read_value > max_v) {
-          max_v = read_value;
-          max_i = i;
-        }
-
-        if (read_value <= min_v) {
-          min_v = read_value;
-          min_i = i;
-        }
-      }
-
-      if (min_i == max_i || max_v - min_v <= MIN_BALANCE_DIFF) {
-        throw exception();
-      }
-
-      auto new_value = (max_v + min_v) / 2;
-      auto remainder = (max_v + min_v) % 2;
-
-      chunks[min_i]->Set(new_value + remainder, at);
-      chunks[max_i]->Set(new_value, at);
-    });
-  } catch (...) {
-    // there is no problem if an exception is thrown, this will be tried again
-    // in the next balance phase
+  if (size < 2) {
+    throw exception();
   }
+
+  uint64_t total = 0;
+  {
+    WSTM::WReadLockGuard<WSTM::WAtomic> lock(at);
+    for (auto i = 0u; i < size; ++i) {
+      total += chunks[i]->Get(at);
+    }
+  }
+
+  // TODO: check for unneeded balances; not sure if it is feasible here, we
+  // would have to make many comparisons just to check if we need to abort,
+  // seems like it would incur in a big overhead
+
+  auto new_value = total / size;
+  auto remainder = total % size;
+
+  chunks[0]->Set(new_value + remainder, at);
+  for (auto i = 1u; i < size; ++i) {
+    chunks[i]->Set(new_value, at);
+  }
+}
+
+auto balance_minmax(WSTM::WAtomic& at, chunks_t chunks) -> void {
+  auto size = chunks.size();
+
+  if (size < 2) {
+    throw exception();
+  }
+
+  auto min_i = 0u;
+  auto min_v = UINT_MAX;
+  auto max_i = 0u;
+  auto max_v = 0u;
+
+  uint read_value;
+  for (auto i = 0u; i < size; ++i) {
+    read_value = chunks[i]->Get(at);
+
+    if (read_value > max_v) {
+      max_v = read_value;
+      max_i = i;
+    }
+
+    if (read_value <= min_v) {
+      min_v = read_value;
+      min_i = i;
+    }
+  }
+
+  if (min_i == max_i || max_v - min_v <= MIN_BALANCE_DIFF) {
+    throw exception();
+  }
+
+  auto new_value = (max_v + min_v) / 2;
+  auto remainder = (max_v + min_v) % 2;
+
+  chunks[min_i]->Set(new_value + remainder, at);
+  chunks[max_i]->Set(new_value, at);
 }
 
 auto compare_less(const std::pair<uint, uint>& a,
@@ -334,93 +330,84 @@ auto constexpr calculate_k(size_t num_records) -> size_t {
   return num_records / 16;
 }
 
-auto mrv_flex_vector::balance_minmax_with_k() -> void {
-  try {
-    WSTM::Atomically([&](WSTM::WAtomic& at) {
-      auto chunks = *std::atomic_load(&this->chunks).get();
-      auto size = chunks.size();
-
-      if (size < 2) {
-        throw exception();
-      }
-
-      const uint k = calculate_k(size);
-
-      std::priority_queue<std::pair<uint, uint>,
-                          std::vector<std::pair<uint, uint>>,
-                          std::function<bool(const std::pair<uint, uint>& a,
-                                             const std::pair<uint, uint>& b)>>
-          smallest_numbers(compare_less);
-      std::priority_queue<std::pair<uint, uint>,
-                          std::vector<std::pair<uint, uint>>,
-                          std::function<bool(const std::pair<uint, uint>& a,
-                                             const std::pair<uint, uint>& b)>>
-          largest_numbers(compare_greater);
-
-      uint read_value;
-      for (auto i = 0u; i < size; ++i) {
-        read_value = chunks[i]->Get(at);
-
-        if (smallest_numbers.size() < k) {
-          smallest_numbers.push(std::make_pair(i, read_value));
-        } else if (read_value < smallest_numbers.top().second) {
-          smallest_numbers.pop();
-          smallest_numbers.push(std::make_pair(i, read_value));
-        }
-
-        if (largest_numbers.size() < k) {
-          largest_numbers.push(std::make_pair(i, read_value));
-        } else if (read_value > largest_numbers.top().second) {
-          largest_numbers.pop();
-          largest_numbers.push(std::make_pair(i, read_value));
-        }
-      }
-
-      std::vector<uint> indexes;
-      indexes.reserve(k + k);
-
-      uint64_t total = 0;
-      while (!smallest_numbers.empty()) {
-        auto small = smallest_numbers.top();
-        smallest_numbers.pop();
-        indexes.push_back(small.first);
-        total += small.second;
-      }
-      while (!largest_numbers.empty()) {
-        auto large = largest_numbers.top();
-        largest_numbers.pop();
-        indexes.push_back(large.first);
-        total += large.second;
-      }
-
-      // TODO: check for unneeded balances
-      // if (min_i == max_i || max_v - min_v <= MIN_BALANCE_DIFF) {
-      //   throw exception();
-      // }
-
-      auto new_value = total / (k + k);
-      auto remainder = total % (k + k);
-
-      for (auto& i : indexes) {
-        if (i == indexes[0]) {
-          chunks[i]->Set(new_value + remainder, at);
-        } else {
-          chunks[i]->Set(new_value, at);
-        }
-      }
-    });
-  } catch (...) {
-    // there is no problem if an exception is thrown, this will be tried again
-    // in the next balance phase
-  }
-}
-
-auto mrv_flex_vector::balance_random() -> void {
-  auto chunks = *std::atomic_load(&this->chunks).get();
+auto balance_minmax_with_k(WSTM::WAtomic& at, chunks_t chunks) -> void {
   auto size = chunks.size();
 
   if (size < 2) {
-    return;
+    throw exception();
+  }
+
+  const uint k = calculate_k(size);
+
+  std::priority_queue<std::pair<uint, uint>, std::vector<std::pair<uint, uint>>,
+                      std::function<bool(const std::pair<uint, uint>& a,
+                                         const std::pair<uint, uint>& b)>>
+      smallest_numbers(compare_less);
+  std::priority_queue<std::pair<uint, uint>, std::vector<std::pair<uint, uint>>,
+                      std::function<bool(const std::pair<uint, uint>& a,
+                                         const std::pair<uint, uint>& b)>>
+      largest_numbers(compare_greater);
+
+  uint read_value;
+  for (auto i = 0u; i < size; ++i) {
+    read_value = chunks[i]->Get(at);
+
+    if (smallest_numbers.size() < k) {
+      smallest_numbers.push(std::make_pair(i, read_value));
+    } else if (read_value < smallest_numbers.top().second) {
+      smallest_numbers.pop();
+      smallest_numbers.push(std::make_pair(i, read_value));
+    }
+
+    if (largest_numbers.size() < k) {
+      largest_numbers.push(std::make_pair(i, read_value));
+    } else if (read_value > largest_numbers.top().second) {
+      largest_numbers.pop();
+      largest_numbers.push(std::make_pair(i, read_value));
+    }
+  }
+
+  std::vector<uint> indexes;
+  indexes.reserve(k + k);
+
+  uint64_t total = 0;
+  while (!smallest_numbers.empty()) {
+    auto small = smallest_numbers.top();
+    smallest_numbers.pop();
+    indexes.push_back(small.first);
+    total += small.second;
+  }
+  while (!largest_numbers.empty()) {
+    auto large = largest_numbers.top();
+    largest_numbers.pop();
+    indexes.push_back(large.first);
+    total += large.second;
+  }
+
+  // TODO: check for unneeded balances
+  // if (min_i == max_i || max_v - min_v <= MIN_BALANCE_DIFF) {
+  //   throw exception();
+  // }
+
+  auto new_value = total / (k + k);
+  auto remainder = total % (k + k);
+
+  for (auto& i : indexes) {
+    if (i == indexes[0]) {
+      chunks[i]->Set(new_value + remainder, at);
+    } else {
+      chunks[i]->Set(new_value, at);
+    }
+  }
+}
+
+auto balance_none(WSTM::WAtomic&, chunks_t) -> void {}
+
+auto balance_random(WSTM::WAtomic& at, chunks_t chunks) -> void {
+  auto size = chunks.size();
+
+  if (size < 2) {
+    throw exception();
   }
 
   auto i = utils::random_index(0, size - 1);
@@ -430,26 +417,38 @@ auto mrv_flex_vector::balance_random() -> void {
     j = (i + 1) % size;
   }
 
-  try {
-    WSTM::Atomically([&](WSTM::WAtomic& at) {
-      auto i_val = chunks[i]->Get(at);
-      auto j_val = chunks[j]->Get(at);
+  auto i_val = chunks[i]->Get(at);
+  auto j_val = chunks[j]->Get(at);
 
-      if (i_val == j_val ||
-          (i_val > j_val && i_val - j_val <= MIN_BALANCE_DIFF) ||
-          (i_val < j_val && j_val - i_val <= MIN_BALANCE_DIFF)) {
-        throw exception();
-      }
+  if (i_val == j_val || (i_val > j_val && i_val - j_val <= MIN_BALANCE_DIFF) ||
+      (i_val < j_val && j_val - i_val <= MIN_BALANCE_DIFF)) {
+    throw exception();
+  }
 
-      auto new_value = (i_val + j_val) / 2;
-      auto remainder = (i_val + j_val) % 2;
+  auto new_value = (i_val + j_val) / 2;
+  auto remainder = (i_val + j_val) % 2;
 
-      chunks[i]->Set(new_value + remainder, at);
-      chunks[j]->Set(new_value, at);
-    });
-  } catch (...) {
-    // there is no problem if an exception is thrown, this will be tried again
-    // in the next balance phase
+  chunks[i]->Set(new_value + remainder, at);
+  chunks[j]->Set(new_value, at);
+}
+
+auto mrv_flex_vector::set_balance_strategy(balance_strategy_t strategy)
+    -> void {
+  switch (strategy) {
+    case balance_strategy_t::none:
+      balance_strategy = balance_none;
+      break;
+    case balance_strategy_t::random:
+      balance_strategy = balance_random;
+      break;
+    case balance_strategy_t::minmax:
+      balance_strategy = balance_minmax;
+      break;
+    case balance_strategy_t::all:
+      balance_strategy = balance_all;
+      break;
+    default:
+      assert(false);
   }
 }
 

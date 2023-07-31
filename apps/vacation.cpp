@@ -23,6 +23,7 @@ enum param_types {
   PARAM_QUERIES = (unsigned char)'q',
   PARAM_RELATIONS = (unsigned char)'r',
   PARAM_SPLITTABLE_TYPE = (unsigned char)'s',
+  PARAM_SPLITTABLE_MRV_BALANCE = (unsigned char)'b',
   PARAM_TRANSACTIONS = (unsigned char)'T',
   PARAM_USER = (unsigned char)'u'
 };
@@ -32,11 +33,13 @@ enum param_types {
 #define PARAM_DEFAULT_QUERIES (60)
 #define PARAM_DEFAULT_RELATIONS (1 << 20)
 #define PARAM_DEFAULT_SPLITTABLE_TYPE "mrv-flex-vector"
+#define PARAM_DEFAULT_SPLITTABLE_MRV_BALANCE "none"
 #define PARAM_DEFAULT_TRANSACTIONS (1 << 22)
 #define PARAM_DEFAULT_USER (90)
 
 double global_params[256]; /* 256 = ascii limit */
 std::string global_splittable_type;
+std::string global_splittable_mrv_balance;
 
 pthread_barrier_t* global_barrierPtr;
 
@@ -57,6 +60,8 @@ static void displayUsage(const char* appName) {
          PARAM_DEFAULT_RELATIONS);
   printf("    s <STR>    Type of [s]plittable value to use     (%s)\n",
          PARAM_DEFAULT_SPLITTABLE_TYPE);
+  printf("    b <STR>    Type of balance (for MRV values)      (%s)\n",
+         PARAM_DEFAULT_SPLITTABLE_MRV_BALANCE);
   printf("    T <UINT>   Number of [T]ransactions              (%i)\n",
          PARAM_DEFAULT_TRANSACTIONS);
   printf("    u <UINT>   Percentage of [u]ser transactions     (%i)\n",
@@ -74,6 +79,7 @@ static void setDefaultParams() {
   global_params[PARAM_QUERIES] = PARAM_DEFAULT_QUERIES;
   global_params[PARAM_RELATIONS] = PARAM_DEFAULT_RELATIONS;
   global_splittable_type = PARAM_DEFAULT_SPLITTABLE_TYPE;
+  global_splittable_mrv_balance = PARAM_DEFAULT_SPLITTABLE_MRV_BALANCE;
   global_params[PARAM_TRANSACTIONS] = PARAM_DEFAULT_TRANSACTIONS;
   global_params[PARAM_USER] = PARAM_DEFAULT_USER;
 }
@@ -90,7 +96,7 @@ static void parseArgs(long argc, char* const argv[]) {
 
   setDefaultParams();
 
-  while ((opt = getopt(argc, argv, "t:n:q:r:s:T:u:L")) != -1) {
+  while ((opt = getopt(argc, argv, "t:n:q:r:s:b:T:u:L")) != -1) {
     switch (opt) {
       case 'T':
       case 'n':
@@ -119,6 +125,9 @@ static void parseArgs(long argc, char* const argv[]) {
         }
         break;
       }
+      case 'b':
+        global_splittable_mrv_balance = optarg;
+        break;
       case '?':
       default:
         opterr++;
@@ -362,11 +371,19 @@ int templated_main() {
 
   checkTables<S>(managerPtr);
 
-  // benchmark, workers, execution time (s), abort rate, avg adjust interval
-  // (ms), avg balance interval (ms), avg phase interval (ms)
   auto abort_rate =
       static_cast<double>(stats.aborts) / (stats.aborts + stats.commits);
-  std::cout << global_splittable_type << "," << numThread << ","
+
+  std::string type("");
+  if (global_splittable_type == "mrv-flex-vector") {
+    type = global_splittable_type + ".balance-" + global_splittable_mrv_balance;
+  } else {
+    type = global_splittable_type;
+  }
+
+  // benchmark, workers, execution time (s), abort rate, avg adjust interval
+  // (ms), avg balance interval (ms), avg phase interval (ms)
+  std::cout << type << "," << numThread << ","
             << TIMER_DIFF_SECONDS(start, stop) << "," << abort_rate << ","
             << avg_adjust_interval.count() / 1000000.0 << ","
             << avg_balance_interval.count() / 1000000.0 << ","
@@ -393,7 +410,25 @@ int main(int argc, char** argv) {
   }
 
   if (global_splittable_type == "mrv-flex-vector") {
-    return templated_main<splittable::mrv::mrv_flex_vector>();
+    using splittable::mrv::balance_strategy_t;
+    using splittable::mrv::mrv_flex_vector;
+
+    auto balance = global_splittable_mrv_balance;
+    if (balance == "none") {
+      mrv_flex_vector::set_balance_strategy(balance_strategy_t::none);
+    } else if (balance == "random") {
+      mrv_flex_vector::set_balance_strategy(balance_strategy_t::random);
+    } else if (balance == "minmax") {
+      mrv_flex_vector::set_balance_strategy(balance_strategy_t::minmax);
+    } else if (balance == "all") {
+      mrv_flex_vector::set_balance_strategy(balance_strategy_t::all);
+    } else {
+      std::cerr << "could not find a balance type with name \"" << balance
+                << "\"; try \"none\", \"random\", \"minmax\", \"all\"\n";
+      return 1;
+    }
+
+    return templated_main<mrv_flex_vector>();
   }
 
   if (global_splittable_type == "pr-array") {

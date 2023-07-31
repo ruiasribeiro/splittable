@@ -182,7 +182,10 @@ int main(int argc, char const* argv[]) {
       "set padding for the transactions")
     ("scale,s", 
       po::value<size_t>()->required(), 
-      "set scale for writes (how big should adds be per sub)");
+      "set scale for writes (how big should adds be per sub)")
+    ("mrv_balance,m", 
+      po::value<std::string>(), 
+      "set MRV balance type (required for MRV benchmarks)");
   // clang-format on
 
   po::variables_map vm;
@@ -195,6 +198,7 @@ int main(int argc, char const* argv[]) {
   options.duration = seconds{vm["duration"].as<size_t>()};
   options.time_padding = vm["time_padding"].as<size_t>();
   options.scale = vm["scale"].as<size_t>();
+  std::string balance("");
 
   result_t result;
   if (options.benchmark == "single") {
@@ -202,20 +206,46 @@ int main(int argc, char const* argv[]) {
     result = run<splittable_t>(options);
   } else if (options.benchmark == "mrv-flex-vector") {
     using splittable_t = splittable::mrv::mrv_flex_vector;
+
+    if (!vm.count("mrv_balance")) {
+      std::cerr << "need to specify a MRV balance (-m <balance-type>)\n";
+      return 1;
+    }
+
+    balance = vm["mrv_balance"].as<std::string>();
+    using splittable::mrv::balance_strategy_t;
+    if (balance == "none") {
+      splittable_t::set_balance_strategy(balance_strategy_t::none);
+    } else if (balance == "random") {
+      splittable_t::set_balance_strategy(balance_strategy_t::random);
+    } else if (balance == "minmax") {
+      splittable_t::set_balance_strategy(balance_strategy_t::minmax);
+    } else if (balance == "all") {
+      splittable_t::set_balance_strategy(balance_strategy_t::all);
+    } else {
+      std::cerr << "could not find a balance type with name \"" << balance
+                << "\"; try \"none\", \"random\", \"minmax\", \"all\"\n";
+      return 1;
+    }
+
     result = run<splittable_t>(options);
   } else if (options.benchmark == "pr-array") {
     using splittable_t = splittable::pr::pr_array;
     result = run<splittable_t>(options);
   } else {
     std::cerr << "could not find a benchmark with name \"" << options.benchmark
-              << "\"; try\"single\", \"mrv-flex-vector\", \"pr-array\"\n";
+              << "\"; try \"single\", \"mrv-flex-vector\", \"pr-array\"\n";
     return 1;
+  }
+
+  if (balance != "") {
+    balance = ".balance-" + balance;
   }
 
   // CSV: benchmark, workers, execution time, padding, read percentage, writes,
   // reads, write throughput (ops/s), read throughput (ops/s), abort rate, avg
   // adjust interval, avg balance interval, avg phase interval
-  std::cout << options.benchmark << "," << options.num_workers << ","
+  std::cout << options.benchmark << balance << "," << options.num_workers << ","
             << options.duration.count() << "," << options.time_padding << ","
             << options.read_percentage << "," << result.writes << ","
             << result.reads << ","

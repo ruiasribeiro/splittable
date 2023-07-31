@@ -20,6 +20,11 @@
 
 namespace splittable::mrv {
 
+using chunk_t = WSTM::WVar<uint>;
+using chunks_t = immer::flex_vector<std::shared_ptr<chunk_t>>;
+
+enum class balance_strategy_t { none, random, minmax, all };
+
 class mrv_flex_vector : public mrv,
                         public std::enable_shared_from_this<mrv_flex_vector> {
  private:
@@ -28,8 +33,6 @@ class mrv_flex_vector : public mrv,
 
   uint id;
 
-  using chunk_t = WSTM::WVar<uint>;
-  using chunks_t = immer::flex_vector<std::shared_ptr<chunk_t>>;
   // this pointer is only accessed with atomic instructions
   std::shared_ptr<chunks_t> chunks;
   // this mutex protects adjust operations (add/remove nodes), so that in cases
@@ -37,16 +40,16 @@ class mrv_flex_vector : public mrv,
   // problems
   std::mutex resizing_mutex;
 
-  auto balance_all() -> void;
-  auto balance_minmax() -> void;
-  auto balance_minmax_with_k() -> void;
-  auto balance_random() -> void;
+  static std::function<void(WSTM::WAtomic&, chunks_t)> balance_strategy;
+
  public:
   // TODO: this is not private because of make_shared, need to revise that later
   mrv_flex_vector(uint value);
 
   auto static new_instance(uint value) -> std::shared_ptr<mrv_flex_vector>;
   auto static delete_instance(std::shared_ptr<mrv_flex_vector>) -> void;
+
+  auto static set_balance_strategy(balance_strategy_t strategy) -> void;
 
   auto get_id() -> uint;
 
