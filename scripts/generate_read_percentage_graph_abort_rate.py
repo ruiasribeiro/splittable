@@ -22,7 +22,7 @@ rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
 df = (
-    pd.read_csv(args.csv_path)
+    pd.read_csv(args.csv_path, index_col=False)
     .groupby(["benchmark", "read percentage"])
     .agg(
         {

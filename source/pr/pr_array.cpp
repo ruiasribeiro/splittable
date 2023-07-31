@@ -153,6 +153,8 @@ auto pr_array::try_transition(double abort_rate, uint waiting,
             } else {
               throw exception();
             }
+          } else {
+            throw exception();
           }
         },
         WSTM::WMaxConflicts(0, WSTM::WConflictResolution::RUN_LOCKED));

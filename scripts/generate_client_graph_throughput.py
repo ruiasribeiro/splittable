@@ -17,21 +17,17 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4.5, 3
+rcParams["figure.figsize"] = 8.5, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
-df = pd.read_csv(args.csv_path)
+df = pd.read_csv(args.csv_path, index_col=False)
+
+print(df)
 
 df = (
     df.groupby(["benchmark", "workers"])
-    .agg(
-        {
-            "commited operations": np.mean,
-            "throughput (ops/s)": np.mean,
-            "abort rate": np.mean,
-        }
-    )
+    .agg({"throughput (ops/s)": np.mean})
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
@@ -40,12 +36,16 @@ df.loc[df["Type"] == "single", "Type"] = "Single"
 df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
 df.loc[df["Type"] == "pr-array", "Type"] = "PR"
 
+df.loc[df["Type"] == "immer_flex_vector", "Type"] = "immer::flex_vector"
+df.loc[df["Type"] == "stl_vector", "Type"] = "std::vector"
+df.loc[df["Type"] == "stl_vector_ptrs", "Type"] = "std::vector (w/ pointers)"
+
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
 
-ticks = df[df["Type"] == "Single"]["workers"]
+ticks = df["workers"].unique()
 plt.xticks(ticks, ticks)
 
 chart = sns.lineplot(
@@ -73,7 +73,7 @@ def custom_tick(value: int) -> str:
 ylabels = [custom_tick(y) for y in chart.get_yticks()]
 chart.set_yticklabels(ylabels)
 
-plt.xlabel("Clients")
+plt.xlabel("Threads")
 plt.ylabel("Throughput (ops/s)")
 
 result_dir = os.path.dirname(args.csv_path)

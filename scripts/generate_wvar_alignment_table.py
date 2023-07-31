@@ -10,7 +10,7 @@ parser.add_argument("csv_path")
 
 args = parser.parse_args()
 
-df = pd.read_csv(args.csv_path)
+df = pd.read_csv(args.csv_path, index_col=False)
 
 pivot_df = pd.pivot_table(
     df,

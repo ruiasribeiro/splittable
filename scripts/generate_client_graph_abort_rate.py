@@ -21,7 +21,7 @@ rcParams["figure.figsize"] = 4.5, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
-df = pd.read_csv(args.csv_path)
+df = pd.read_csv(args.csv_path, index_col=False)
 
 df = (
     df.groupby(["benchmark", "workers"])
