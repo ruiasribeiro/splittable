@@ -32,14 +32,7 @@ class mrv_flex_vector : public mrv,
   std::atomic_uint32_t status_counters;
 
   uint id;
-
-  // this pointer is only accessed with atomic instructions
-  std::shared_ptr<chunks_t> chunks;
-  // this mutex protects adjust operations (add/remove nodes), so that in cases
-  // multiple threads try to perform them, they do not create consistency
-  // problems
-  std::mutex resizing_mutex;
-
+  std::atomic<std::shared_ptr<chunks_t>> chunks;
   static std::function<void(WSTM::WAtomic&, chunks_t)> balance_strategy;
 
  public:
