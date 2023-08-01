@@ -7,37 +7,37 @@ manager::manager()
       adjust_iterations(0),
       total_balance_time(0),
       balance_iterations(0) {
-  workers.emplace_back(
-      // balance worker
-      [this](std::stop_token stop_token) {
-        while (!stop_token.stop_requested()) {
-          std::this_thread::sleep_until(std::chrono::steady_clock::now() +
-                                        BALANCE_INTERVAL);
+  // workers.emplace_back(
+  //     // balance worker
+  //     [this](std::stop_token stop_token) {
+  //       while (!stop_token.stop_requested()) {
+  //         std::this_thread::sleep_until(std::chrono::steady_clock::now() +
+  //                                       BALANCE_INTERVAL);
 
-          values_type values;
-          {
-            // the structure is immutable, we only need the lock to fetch it
-            std::lock_guard<std::mutex> lock(this->values_mutex);
-            values = this->values;
-          }
+  //         values_type values;
+  //         {
+  //           // the structure is immutable, we only need the lock to fetch it
+  //           std::lock_guard<std::mutex> lock(this->values_mutex);
+  //           values = this->values;
+  //         }
 
-          auto start = std::chrono::steady_clock::now();
+  //         auto start = std::chrono::steady_clock::now();
 
-          std::for_each(std::execution::par_unseq, values.begin(), values.end(),
-                        [](std::pair<uint, std::shared_ptr<mrv>> pair) {
-                          pair.second->balance();
-                        });
+  //         std::for_each(std::execution::par_unseq, values.begin(), values.end(),
+  //                       [](std::pair<uint, std::shared_ptr<mrv>> pair) {
+  //                         pair.second->balance();
+  //                       });
 
-          auto end = std::chrono::steady_clock::now();
+  //         auto end = std::chrono::steady_clock::now();
 
-          {
-            std::lock_guard<std::mutex> lock(this->balance_time_mutex);
+  //         {
+  //           std::lock_guard<std::mutex> lock(this->balance_time_mutex);
 
-            this->total_balance_time += end - start;
-            ++this->balance_iterations;
-          }
-        }
-      });
+  //           this->total_balance_time += end - start;
+  //           ++this->balance_iterations;
+  //         }
+  //       }
+  //     });
 
   workers.emplace_back(
       // adjust worker
