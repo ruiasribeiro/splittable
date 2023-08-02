@@ -17,20 +17,14 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4, 3
+rcParams["figure.figsize"] = 4, 4.4
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
 df = (
     pd.read_csv(args.csv_path, index_col=False)
     .groupby(["benchmark", "records"])
-    .agg(
-        {
-            "write throughput (ops/s)": np.mean,
-            "abort rate": np.mean,
-            "avg balance interval (ms)": np.mean,
-        }
-    )
+    .agg({"abort rate": np.mean})
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
@@ -50,7 +44,8 @@ markers = [marker[i] for i in range(len(df["Type"].unique()))]
 plt.xscale("log")
 
 ticks = df["records"].unique()
-plt.xticks(ticks, ticks)
+plt.xticks(ticks, ticks, rotation=90)
+plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 
 chart = sns.lineplot(
     data=df,

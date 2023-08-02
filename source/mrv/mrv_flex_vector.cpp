@@ -12,9 +12,9 @@ mrv_flex_vector::mrv_flex_vector(uint value) : status_counters(0) {
   // auto remainder = value % size;
 
   // immer::flex_vector_transient<std::shared_ptr<chunk_t>> transient_chunks;
-  // transient_chunks.push_back(std::make_shared<chunk_t>(value + remainder));
+  // transient_chunks.push_back(std::make_shared<chunk_t>(new_value + remainder));
   // for (size_t i = 1; i < size; ++i) {
-  //   transient_chunks.push_back(std::make_shared<chunk_t>(value));
+  //   transient_chunks.push_back(std::make_shared<chunk_t>(new_value));
   // }
   // auto chunks = transient_chunks.persistent();
 

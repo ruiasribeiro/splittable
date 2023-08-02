@@ -17,7 +17,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4, 3
+rcParams["figure.figsize"] = 4, 4.4
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -50,7 +50,8 @@ markers = [marker[i] for i in range(len(df["Type"].unique()))]
 plt.xscale("log")
 
 ticks = df["records"].unique()
-plt.xticks(ticks, ticks)
+plt.xticks(ticks, ticks, rotation=90)
+plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 
 chart = sns.lineplot(
     data=df,
@@ -62,6 +63,7 @@ chart = sns.lineplot(
 )
 
 chart.get_legend().set_title(None)
+# plt.legend(frameon=False)
 
 
 def custom_tick(value: int) -> str:
@@ -73,6 +75,8 @@ def custom_tick(value: int) -> str:
         case other:
             return "{:,.0f}".format(other)
 
+
+plt.ylim(bottom=0)
 
 ylabels = [custom_tick(y) for y in chart.get_yticks()]
 chart.set_yticklabels(ylabels)

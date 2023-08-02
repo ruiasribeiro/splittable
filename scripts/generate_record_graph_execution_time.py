@@ -17,46 +17,53 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 8.5, 3
+rcParams["figure.figsize"] = 4, 4.4
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
-
 df = (
     pd.read_csv(args.csv_path, index_col=False)
-    .groupby(["benchmark", "workers"])
-    .agg({"throughput (ops/s)": np.mean})
+    .groupby(["benchmark", "records"])
+    .agg(
+        {
+            "execution time (s)": np.mean,
+            "abort rate": np.mean,
+            "avg balance interval (ms)": np.mean,
+        }
+    )
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
 
-df.loc[df["Type"] == "single", "Type"] = "Single"
-df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
-df.loc[df["Type"] == "pr-array", "Type"] = "PR"
+df.loc[df["Type"] == "mrv-flex-vector.balance-none", "Type"] = "None"
+df.loc[df["Type"] == "mrv-flex-vector.balance-random", "Type"] = "Random"
+df.loc[df["Type"] == "mrv-flex-vector.balance-minmax", "Type"] = "Min-max"
+df.loc[df["Type"] == "mrv-flex-vector.balance-all", "Type"] = "All"
 
-df.loc[df["Type"] == "immer_flex_vector", "Type"] = "immer::flex_vector"
-df.loc[df["Type"] == "stl_vector", "Type"] = "std::vector"
-df.loc[df["Type"] == "stl_vector_ptrs", "Type"] = "std::vector (w/ pointers)"
+df = df.sort_values(
+    by=["Type"], key=lambda x: x.map({"All": 0, "Min-max": 1, "Random": 2, "None": 3})
+)
 
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
 
-ticks = df["workers"].unique()
-plt.xticks(ticks, ticks)
+ticks = df["records"].unique()
+plt.xticks(ticks, ticks, rotation=90)
 plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 
 chart = sns.lineplot(
     data=df,
-    x="workers",
-    y="throughput (ops/s)",
+    x="records",
+    y="execution time (s)",
     hue="Type",
     style="Type",
     markers=markers,
 )
 
 chart.get_legend().set_title(None)
+# plt.legend(frameon=False)
 
 
 def custom_tick(value: int) -> str:
@@ -69,11 +76,13 @@ def custom_tick(value: int) -> str:
             return "{:,.0f}".format(other)
 
 
+plt.ylim(bottom=0)
+
 ylabels = [custom_tick(y) for y in chart.get_yticks()]
 chart.set_yticklabels(ylabels)
 
-plt.xlabel("Threads")
-plt.ylabel("Throughput (ops/s)")
+plt.xlabel("Records")
+plt.ylabel("Execution time (s)")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
@@ -81,7 +90,7 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-client-throughput.pdf"),
+    os.path.join(result_dir, "graphs", f"{file_name}-record-execution-time.pdf"),
     bbox_inches="tight",
     pad_inches=0.0,
 )

@@ -2,9 +2,9 @@
 
 type_list=(single mrv-flex-vector pr-array)
 worker_list=(8)
-read_per_list=(5)
+read_per_list=(0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)
 padding_list=(100000)
-seconds=5
+seconds=60
 runs=5
 scale=1000
 mrv_balances=(none random minmax all)

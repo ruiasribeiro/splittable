@@ -25,13 +25,7 @@ df = pd.read_csv(args.csv_path, index_col=False)
 
 df = (
     df.groupby(["benchmark", "workers"])
-    .agg(
-        {
-            "commited operations": np.mean,
-            "throughput (ops/s)": np.mean,
-            "abort rate": np.mean,
-        }
-    )
+    .agg({"abort rate": np.mean})
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
