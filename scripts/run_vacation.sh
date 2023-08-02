@@ -3,11 +3,15 @@
 splittable_list=(single mrv-flex-vector pr-array)
 client_list=(1 2 4 8 16 32 64 128)
 runs=5
-mrv_balances=(none random minmax all)
+mrv_balances=(none)
 
-# original high contention
+# low contention
+# vacation_params=(-n2 -q90 -u98 -r1048576 -T4194304)
+# high contention
 # vacation_params=(-n4 -q60 -u90 -r1048576 -T4194304)
-vacation_params=(-n4 -q60 -u90 -r104857 -T419430)
+
+# We use 1000x less relations; the default is too much for TM.
+vacation_params=(-n4 -q60 -u90 -r1048 -T4194304)
 
 echo "benchmark,workers,execution time (s),abort rate,avg adjust interval (ms),avg balance interval (ms),avg phase interval (ms)"
 

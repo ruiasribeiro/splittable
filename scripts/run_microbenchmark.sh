@@ -7,7 +7,7 @@ padding_list=(100000)
 seconds=60
 runs=5
 scale=1000
-mrv_balances=(none random minmax all)
+mrv_balances=(none)
 
 printf "benchmark,workers,execution time (s),padding,read percentage,writes,reads,write throughput (ops/s),read throughput (ops/s),abort rate,avg adjust interval (ms),avg balance interval (ms),avg phase interval (ms)\n"
 

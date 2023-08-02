@@ -23,7 +23,8 @@ manager::manager()
 
   //         auto start = std::chrono::steady_clock::now();
 
-  //         std::for_each(std::execution::par_unseq, values.begin(), values.end(),
+  //         std::for_each(std::execution::par_unseq, values.begin(),
+  //         values.end(),
   //                       [](std::pair<uint, std::shared_ptr<mrv>> pair) {
   //                         pair.second->balance();
   //                       });
@@ -128,7 +129,11 @@ auto manager::get_avg_adjust_interval() -> std::chrono::nanoseconds {
   {
     std::lock_guard<std::mutex> lock(this->adjust_time_mutex);
 
-    return this->total_adjust_time / adjust_iterations;
+    if (adjust_iterations > 0) {
+      return this->total_adjust_time / adjust_iterations;
+    }
+
+    return std::chrono::nanoseconds(0);
   }
 }
 
@@ -136,7 +141,11 @@ auto manager::get_avg_balance_interval() -> std::chrono::nanoseconds {
   {
     std::lock_guard<std::mutex> lock(this->balance_time_mutex);
 
-    return this->total_balance_time / balance_iterations;
+    if (balance_iterations > 0) {
+      return this->total_balance_time / balance_iterations;
+    }
+
+    return std::chrono::nanoseconds(0);
   }
 }
 

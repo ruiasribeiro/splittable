@@ -84,7 +84,11 @@ auto manager::get_avg_phase_interval() -> std::chrono::nanoseconds {
   {
     std::lock_guard<std::mutex> lock(this->phase_time_mutex);
 
-    return this->total_phase_time / phase_iterations;
+    if (phase_iterations > 0) {
+      return this->total_phase_time / phase_iterations;
+    }
+    
+    return std::chrono::nanoseconds(0);
   }
 }
 
