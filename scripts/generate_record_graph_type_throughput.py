@@ -12,6 +12,7 @@ from matplotlib import rcParams
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
+parser.add_argument("throughput_type", choices=["generic", "write", "read"])
 parser.add_argument("csv_path")
 
 args = parser.parse_args()
@@ -27,8 +28,7 @@ df = (
     .agg(
         {
             "write throughput (ops/s)": np.mean,
-            "abort rate": np.mean,
-            "avg balance interval (ms)": np.mean,
+            "read throughput (ops/s)": np.mean,
         }
     )
     .reset_index()
@@ -39,6 +39,8 @@ df.loc[df["Type"] == "mrv-flex-vector.balance-none", "Type"] = "None"
 df.loc[df["Type"] == "mrv-flex-vector.balance-random", "Type"] = "Random"
 df.loc[df["Type"] == "mrv-flex-vector.balance-minmax", "Type"] = "Min-max"
 df.loc[df["Type"] == "mrv-flex-vector.balance-all", "Type"] = "All"
+
+throughput_type = args.throughput_type
 
 df = df.sort_values(
     by=["Type"], key=lambda x: x.map({"All": 0, "Min-max": 1, "Random": 2, "None": 3})
@@ -56,7 +58,9 @@ plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 chart = sns.lineplot(
     data=df,
     x="records",
-    y="write throughput (ops/s)",
+    y=f"{throughput_type} throughput (ops/s)"
+    if throughput_type != "generic"
+    else "throughput (ops/s)",
     hue="Type",
     style="Type",
     markers=markers,
@@ -82,7 +86,11 @@ ylabels = [custom_tick(y) for y in chart.get_yticks()]
 chart.set_yticklabels(ylabels)
 
 plt.xlabel("Records")
-plt.ylabel("Throughput (ops/s)")
+plt.ylabel(
+    f"{throughput_type.capitalize()} throughput (ops/s)"
+    if throughput_type != "generic"
+    else "Throughput (ops/s)"
+)
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
@@ -90,7 +98,7 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-record-throughput.pdf"),
+    os.path.join(result_dir, "graphs", f"{file_name}-record-{throughput_type}-throughput.pdf"),
     bbox_inches="tight",
     pad_inches=0.0,
 )
