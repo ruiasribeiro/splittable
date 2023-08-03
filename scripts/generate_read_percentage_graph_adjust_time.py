@@ -8,11 +8,12 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from matplotlib import rcParams
+from matplotlib import rcParams, ticker
+# from matplotlibticker import FormatStrFormatter
+
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
-parser.add_argument("throughput_type", choices=["write", "read"])
 parser.add_argument("csv_path")
 
 args = parser.parse_args()
@@ -22,19 +23,10 @@ rcParams["figure.figsize"] = 4.5, 2
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
-
 df = (
     pd.read_csv(args.csv_path, index_col=False)
     .groupby(["benchmark", "read percentage"])
-    .agg(
-        {
-            "writes": np.mean,
-            "reads": np.mean,
-            "write throughput (ops/s)": np.mean,
-            "read throughput (ops/s)": np.mean,
-            "abort rate": np.mean,
-        }
-    )
+    .agg({"avg adjust interval (ms)": np.mean})
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
@@ -44,65 +36,44 @@ df.loc[df["Type"] == "mrv-flex-vector.balance-none.abort-default", "Type"] = "MR
 df.loc[df["Type"] == "mrv-flex-vector.balance-none.abort-10x", "Type"] = "MRV-R"
 df.loc[df["Type"] == "pr-array", "Type"] = "PR"
 
-throughput_type = args.throughput_type
-
-if throughput_type == "write":
-    df = df[df["read percentage"] < 100]
-else:
-    df = df[df["read percentage"] > 0]
-
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 # plt.xscale("log")
+plt.yscale("log")
+plt.tick_params(axis='y', which='minor')
+plt.gca().yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=9))
 
 # ticks = df[df["Type"] == "Single"]["read percentage"]
-if throughput_type == "write":
-    ticks = [0, 25, 50, 75, 95]
-else:
-    ticks = [5, 25, 50, 75, 100]
+ticks = [0, 25, 50, 75, 100]
 plt.xticks(ticks, ticks)
 # plt.xticks(rotation=60)
 
 chart = sns.lineplot(
     data=df,
     x="read percentage",
-    y=f"{throughput_type} throughput (ops/s)",
+    y="avg adjust interval (ms)",
     hue="Type",
     style="Type",
     markers=markers,
 )
 
+plt.ylim(top=4000) # a hack
 chart.get_legend().set_title(None)
-plt.ylim(bottom=0)
-
-def custom_tick(value: int) -> str:
-    match value:
-        case v if v >= 1_000_000:
-            return "{:,.0f}M".format(v / 1_000_000)
-        case v if v >= 1_000:
-            return "{:,.0f}k".format(v / 1_000)
-        case other:
-            return "{:,.0f}".format(other)
-
-
-ylabels = [custom_tick(y) for y in chart.get_yticks()]
-chart.set_yticklabels(ylabels)
 
 plt.xlabel("Read percentage (%)")
-plt.ylabel(f"{throughput_type.capitalize()}s (ops/s)")
+plt.ylabel("Adjust time (ms)")
+
+plt.axhline(y=1000, color="r", linestyle="--")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 
 # plt.tight_layout()  # avoids cropping the labels
+# plt.margins(tight=True)
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(
-        result_dir,
-        "graphs",
-        f"{file_name}-read-percentage-{throughput_type}-throughput.pdf",
-    ),
+    os.path.join(result_dir, "graphs", f"{file_name}-read-percentage-adjust-time.pdf"),
     bbox_inches="tight",
     pad_inches=0.0,
 )

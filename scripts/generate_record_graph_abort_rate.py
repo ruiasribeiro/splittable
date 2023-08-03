@@ -17,7 +17,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4, 4.4
+rcParams["figure.figsize"] = 5.25, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -42,6 +42,7 @@ marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", 
 markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
+# plt.ylim(-0.05, 1.05)
 
 ticks = df["records"].unique()
 plt.xticks(ticks, ticks, rotation=90)

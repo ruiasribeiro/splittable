@@ -72,7 +72,7 @@ def custom_tick(value: int) -> str:
 ylabels = [custom_tick(y) for y in chart.get_yticks()]
 chart.set_yticklabels(ylabels)
 
-plt.xlabel("Threads")
+plt.xlabel("Clients")
 plt.ylabel("Throughput (ops/s)")
 
 result_dir = os.path.dirname(args.csv_path)

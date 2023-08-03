@@ -18,7 +18,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4, 4.4
+rcParams["figure.figsize"] = 5.25, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -87,7 +87,7 @@ chart.set_yticklabels(ylabels)
 
 plt.xlabel("Records")
 plt.ylabel(
-    f"{throughput_type.capitalize()} throughput (ops/s)"
+    f"{throughput_type.capitalize()}s (ops/s)"
     if throughput_type != "generic"
     else "Throughput (ops/s)"
 )

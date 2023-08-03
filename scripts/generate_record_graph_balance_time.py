@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from matplotlib import rcParams
+from matplotlib import rcParams, ticker
 from pathlib import Path
 
 parser = argparse.ArgumentParser()
@@ -17,7 +17,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4, 4.4
+rcParams["figure.figsize"] = 5.25, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -46,6 +46,7 @@ markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
 plt.yscale("log")
+plt.gca().yaxis.set_minor_locator(ticker.LogLocator(base=10.0, subs=(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9), numticks=9))
 
 ticks = df["records"].unique()
 plt.xticks(ticks, ticks, rotation=90)
@@ -60,6 +61,7 @@ chart = sns.lineplot(
     markers=markers,
 )
 
+plt.ylim(top=3000) # a hack
 chart.get_legend().set_title(None)
 
 plt.xlabel("Records")

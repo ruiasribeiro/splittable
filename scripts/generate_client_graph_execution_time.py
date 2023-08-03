@@ -21,41 +21,31 @@ rcParams["figure.figsize"] = 3.5, 3.5
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
+
 df = (
     pd.read_csv(args.csv_path, index_col=False)
-    .groupby(["benchmark", "records"])
-    .agg(
-        {
-            "execution time (s)": np.mean,
-            "abort rate": np.mean,
-            "avg balance interval (ms)": np.mean,
-        }
-    )
+    .groupby(["benchmark", "workers"])
+    .agg({"execution time (s)": np.mean})
     .reset_index()
     .rename(columns={"benchmark": "Type"})
 )
 
-df.loc[df["Type"] == "mrv-flex-vector.balance-none", "Type"] = "None"
-df.loc[df["Type"] == "mrv-flex-vector.balance-random", "Type"] = "Random"
-df.loc[df["Type"] == "mrv-flex-vector.balance-minmax", "Type"] = "Min-max"
-df.loc[df["Type"] == "mrv-flex-vector.balance-all", "Type"] = "All"
-
-df = df.sort_values(
-    by=["Type"], key=lambda x: x.map({"All": 0, "Min-max": 1, "Random": 2, "None": 3})
-)
+df.loc[df["Type"] == "single", "Type"] = "Single"
+df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
+df.loc[df["Type"] == "pr-array", "Type"] = "PR"
 
 marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
 markers = [marker[i] for i in range(len(df["Type"].unique()))]
 
 plt.xscale("log")
 
-ticks = df["records"].unique()
+ticks = df["workers"].unique()
 plt.xticks(ticks, ticks, rotation=90)
 plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 
 chart = sns.lineplot(
     data=df,
-    x="records",
+    x="workers",
     y="execution time (s)",
     hue="Type",
     style="Type",
@@ -63,25 +53,9 @@ chart = sns.lineplot(
 )
 
 chart.get_legend().set_title(None)
-# plt.legend(frameon=False)
-
-
-def custom_tick(value: int) -> str:
-    match value:
-        case v if v >= 1_000_000:
-            return "{:,.0f}M".format(v / 1_000_000)
-        case v if v >= 1_000:
-            return "{:,.0f}k".format(v / 1_000)
-        case other:
-            return "{:,.0f}".format(other)
-
-
 plt.ylim(bottom=0)
 
-ylabels = [custom_tick(y) for y in chart.get_yticks()]
-chart.set_yticklabels(ylabels)
-
-plt.xlabel("Records")
+plt.xlabel("Clients")
 plt.ylabel("Execution time (s)")
 
 result_dir = os.path.dirname(args.csv_path)
@@ -90,7 +64,7 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-record-execution-time.pdf"),
+    os.path.join(result_dir, "graphs", f"{file_name}-client-execution-time.pdf"),
     bbox_inches="tight",
     pad_inches=0.0,
 )
