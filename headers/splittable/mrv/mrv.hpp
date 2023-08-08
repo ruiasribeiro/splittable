@@ -11,8 +11,8 @@ struct status {
   uint64_t commits;
 };
 
-const double MIN_ABORT_RATE = 0.01;
-const double MAX_ABORT_RATE = 0.05;
+const double MIN_ABORT_RATE = 0.1;
+const double MAX_ABORT_RATE = 0.5;
 
 const uint MAX_NODES = 1024;
 const uint MIN_BALANCE_DIFF = 5;
