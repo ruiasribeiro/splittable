@@ -18,7 +18,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 4.5, 2
+rcParams["figure.figsize"] = 3, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -40,8 +40,7 @@ df = (
 )
 
 df.loc[df["Type"] == "single", "Type"] = "Single"
-df.loc[df["Type"] == "mrv-flex-vector.balance-none.abort-default", "Type"] = "MRV-O"
-df.loc[df["Type"] == "mrv-flex-vector.balance-none.abort-10x", "Type"] = "MRV-R"
+df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
 df.loc[df["Type"] == "pr-array", "Type"] = "PR"
 
 throughput_type = args.throughput_type

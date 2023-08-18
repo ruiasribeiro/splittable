@@ -17,7 +17,7 @@ parser.add_argument("csv_path")
 args = parser.parse_args()
 
 # figure size in inches
-rcParams["figure.figsize"] = 3.5, 3.5
+rcParams["figure.figsize"] = 4.5, 3
 rcParams["font.family"] = "Inter"
 rcParams["font.size"] = 14
 
@@ -41,7 +41,7 @@ plt.xscale("log")
 plt.ylim(-0.05, 1.05)
 
 ticks = df["workers"].unique()
-plt.xticks(ticks, ticks, rotation=90)
+plt.xticks(ticks, ticks)
 plt.gca().xaxis.set_tick_params(which="minor", bottom=False)
 
 chart = sns.lineplot(

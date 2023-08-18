@@ -24,36 +24,35 @@ rcParams["font.size"] = 14
 df = pd.read_csv(args.csv_path, index_col=False)
 
 df = (
-    df.groupby(["benchmark", "padding"])
-    .agg({"abort rate": np.mean})
+    df.groupby(["benchmark", "type"])
+    .agg(
+        {
+            "writes": np.mean,
+            "reads": np.mean,
+            "write throughput (ops/s)": np.mean,
+            "read throughput (ops/s)": np.mean,
+            "energy consumption (J)": np.mean,
+        }
+    )
     .reset_index()
-    .rename(columns={"benchmark": "Type"})
 )
 
-df.loc[df["Type"] == "single", "Type"] = "Single"
-df.loc[df["Type"] == "mrv-flex-vector", "Type"] = "MRV"
-df.loc[df["Type"] == "pr-array", "Type"] = "PR"
+df["total_operations"] = df["writes"] + df["reads"]
+df["total_throughput"] = df["write throughput (ops/s)"] + df["read throughput (ops/s)"]
+df["efficiency"] = df["total_operations"] / df["energy consumption (J)"]
 
-marker = ["o", "v", "^", "<", ">", "8", "s", "p", "*", "h", "H", "D", "d", "P", "X"]
-markers = [marker[i] for i in range(len(df["Type"].unique()))]
+df.loc[df["benchmark"] == "single", "benchmark"] = "Single"
+df.loc[df["benchmark"] == "mrv-flex-vector", "benchmark"] = "MRV"
+df.loc[df["benchmark"] == "pr-array", "benchmark"] = "PR"
 
-plt.xscale("log")
-plt.ylim(-0.05, 1.05)
-
-ticks = df[df["Type"] == "Single"]["padding"]
-plt.xticks(ticks, ticks)
-
-chart = sns.lineplot(
+chart = sns.barplot(
     data=df,
-    x="padding",
-    y="abort rate",
-    hue="Type",
-    style="Type",
-    markers=markers,
+    x="type",
+    y="efficiency",
+    hue="benchmark",
 )
 
 chart.get_legend().set_title(None)
-
 
 def custom_tick(value: int) -> str:
     match value:
@@ -65,11 +64,11 @@ def custom_tick(value: int) -> str:
             return "{:,.0f}".format(other)
 
 
-xlabels = [custom_tick(x) for x in chart.get_xticks()]
-chart.set_xticklabels(xlabels)
+ylabels = [custom_tick(y) for y in chart.get_yticks()]
+chart.set_yticklabels(ylabels)
 
-plt.xlabel("Padding")
-plt.ylabel("Abort rate")
+plt.xlabel("Type")
+plt.ylabel("Efficiency (ops/J)")
 
 result_dir = os.path.dirname(args.csv_path)
 Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
@@ -77,7 +76,7 @@ Path(os.path.join(result_dir, "graphs")).mkdir(exist_ok=True)
 plt.tight_layout()  # avoids cropping the labels
 file_name = Path(args.csv_path).stem
 plt.savefig(
-    os.path.join(result_dir, "graphs", f"{file_name}-padding-abort-rate.pdf"),
+    os.path.join(result_dir, "graphs", f"{file_name}-power-operations.pdf"),
     bbox_inches="tight",
     pad_inches=0.0,
 )
